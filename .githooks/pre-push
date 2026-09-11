@@ -1,0 +1,17 @@
+#!/bin/sh
+# Bloqueia o push se lint ou typecheck falharem.
+# Instalado automaticamente via `npm install` (script "prepare" no package.json).
+
+echo "pre-push: rodando lint..."
+npm run lint || {
+  echo "pre-push: lint falhou — push bloqueado."
+  exit 1
+}
+
+echo "pre-push: rodando typecheck..."
+npm run typecheck || {
+  echo "pre-push: typecheck falhou — push bloqueado."
+  exit 1
+}
+
+exit 0

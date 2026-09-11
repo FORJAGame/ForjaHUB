@@ -5,6 +5,7 @@
   "main": "./out/main/index.js",
   "author": "FORJA Game Studio",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "lint": "eslint --cache .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
