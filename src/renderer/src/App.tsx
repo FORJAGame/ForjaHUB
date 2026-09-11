@@ -3,12 +3,13 @@ import FocusHarness from './FocusHarness'
 import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
 import { useInputIntents } from './input/hooks/use-input-intents'
+import SetupScreen from './screens/setup/SetupScreen'
 import { initialState, reducer } from './state/reducer'
 
 /**
- * Shell mínimo do Kiosk. Sem tela real: exercita a máquina de estados, o
- * caminho main→renderer via `forjaAPI` e a camada de input sobre
- * um harness de foco.
+ * Shell mínimo do Kiosk. Exercita a máquina de estados e o caminho
+ * main→renderer via `forjaAPI`; `setup` já é uma tela real, o
+ * resto dos modos ainda mostra o harness de foco placeholder.
  */
 export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -51,6 +52,19 @@ export default function App(): JSX.Element {
       off()
     }
   }, [])
+
+  if (state.mode === 'setup') {
+    return (
+      <main className="flex h-full select-none flex-col items-center justify-center gap-6 text-[#f4e9e3]">
+        <p className="m-0 text-xs tracking-[0.3em] opacity-50">FORJA HUB — SETUP</p>
+        {state.errorPlate && <p className="m-0 text-[#e0483f]">erro: {state.errorPlate}</p>}
+        <SetupScreen
+          onComplete={(mode) => dispatch({ type: 'set-mode', mode })}
+          onError={(code) => dispatch({ type: 'error-plate', code })}
+        />
+      </main>
+    )
+  }
 
   return (
     <main
