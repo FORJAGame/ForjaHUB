@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { isEditableTarget } from '../dom-guard'
 import { NEUTRAL_DIGITAL, readGamepadIntents, selectActiveGamepad, type DigitalState } from '../gamepad'
 import { mapKeyToIntent } from '../keyboard'
 import type { Intent } from '../types'
@@ -55,6 +56,8 @@ export function useInputIntents({ onIntent, onConnectedChange }: UseInputIntents
     frame = requestAnimationFrame(tick)
 
     const onKeyDown = (e: KeyboardEvent): void => {
+      // Campo de texto focado (ex. setup-form): deixa a edição nativa em paz.
+      if (isEditableTarget(e.target as HTMLElement | null)) return
       const intent = mapKeyToIntent(e)
       if (!intent) return
       e.preventDefault()

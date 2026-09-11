@@ -8,7 +8,9 @@ const forjaAPI: ForjaAPI = {
     const handler = (): void => cb()
     ipcRenderer.on(IPC.OPERATOR_OPEN, handler)
     return () => ipcRenderer.removeListener(IPC.OPERATOR_OPEN, handler)
-  }
+  },
+  configRoster: () => ipcRenderer.invoke(IPC.CONFIG_ROSTER),
+  configSetupSubmit: (input) => ipcRenderer.invoke(IPC.CONFIG_SETUP_SUBMIT, input)
 }
 
 contextBridge.exposeInMainWorld('forjaAPI', forjaAPI)

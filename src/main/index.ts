@@ -2,10 +2,16 @@ import { join } from 'path'
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/channels'
-import type { CommandResult, Mode } from '@shared/types'
+import type { CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
+import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from './store/config-estacao'
+import { createStore } from './store'
+import { ROSTER_STUB } from './store/roster-stub'
+import { validateSetupSubmit } from './store/setup-submit'
+import type { Store } from './ports'
 
 let mainWindow: BrowserWindow | null = null
+let store: Store
 
 function runOperatorShortcut(action: OperatorShortcut): void {
   switch (action) {
@@ -102,16 +108,52 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.forja.hub')
+    store = createStore()
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
 
-    // TODO: Handshake de boot devolve só o `mode` inicial nessa fase.
+    // #TODO: cache real no lugar de catalog
+    ipcMain.handle(IPC.APP_HYDRATE, async (): Promise<CommandResult<{ mode: Mode }>> => {
+      try {
+        const config = await store.lerConfigEstacao()
+        return { ok: true, mode: config ? 'catalog' : 'setup' }
+      } catch (err) {
+        if (err instanceof SchemaIncompativelError) {
+          return { ok: false, code: 'SCHEMA_INCOMPATIVEL', msg: err.message }
+        }
+        console.error('[main] falha lendo station.json:', err)
+        return { ok: false, code: 'STORE_INDISPONIVEL' }
+      }
+    })
+
+    // #TODO: catalogSource real
     ipcMain.handle(
-      IPC.APP_HYDRATE,
-      (): CommandResult<{ mode: Mode }> => ({ ok: true, mode: 'boot' })
+      IPC.CONFIG_ROSTER,
+      (): CommandResult<{ roster: Jogo[] }> => ({ ok: true, roster: ROSTER_STUB })
     )
+
+    ipcMain.handle(IPC.CONFIG_SETUP_SUBMIT, async (_event, input: unknown): Promise<CommandResult> => {
+      const validated = validateSetupSubmit(
+        input,
+        ROSTER_STUB.map((jogo) => jogo.id)
+      )
+      if (!validated.ok) return validated
+      const { estacaoId, eventoId, jogosSelecionados } = validated
+      try {
+        await store.gravarConfigEstacao({
+          estacaoId,
+          eventoId,
+          jogosSelecionados,
+          schemaVersion: CURRENT_SCHEMA_VERSION
+        })
+      } catch (err) {
+        console.error('[main] falha gravando station.json:', err)
+        return { ok: false, code: 'STORE_INDISPONIVEL' }
+      }
+      return { ok: true }
+    })
 
     registerGlobalShortcuts()
     createWindow()
