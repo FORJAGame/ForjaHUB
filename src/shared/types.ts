@@ -36,18 +36,31 @@ export type CommandResult<T = Record<never, never>> =
   | ({ ok: true } & T)
   | { ok: false; code: string; msg?: string }
 
-// --- Entidades de domínio (stubs) ---------------------------
+// --- Entidades de domínio ------------------------------------
 
 export type BuildStatus = 'ausente' | 'baixando' | 'pronto' | 'erro'
 
+export type Modalidade = 'single-player' | 'multiplayer'
+
 export interface Jogo {
-  /** Slug kebab-case, dono é a Planilha, nunca derivado do título. */
   id: string
-  ordem: number
+  titulo: string
+  ano: number
+  guilda: string //estudio
+  genero: string
+  modalidade: Modalidade
+  sinopse: string
+  redesUrl: string
+  /**
+   * Caminho do `.exe` dentro do build (`games/<id>/<exeRelativo>`), validado
+   * (sem `..`, sem path absoluto) mas ainda não usado pra lançar nada.
+   */
+  exeRelativo: string
 }
 
 export interface Catalogo {
   jogos: Jogo[]
+  sincronizadoEm: string
 }
 
 export interface RegistroAnalytics {
