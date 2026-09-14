@@ -47,6 +47,7 @@ export async function loadServiceAccountCredentials(
 
 export interface GoogleClients {
   sheets: SheetsValuesClient
+  drive: DriveMediaClient
 }
 
 // Superfície mínima do `sheets_v4.Sheets` real que `wrapSheetsClient`
@@ -72,11 +73,78 @@ export function wrapSheetsClient(raw: RawSheetsClient): SheetsValuesClient {
   }
 }
 
+export interface DriveEntry {
+  id: string
+  name: string
+}
+
+export interface DriveMediaClient {
+  listFolder(folderId: string): Promise<DriveEntry[]>
+  downloadFile(fileId: string): Promise<Buffer>
+}
+
+// Superfície mínima do `drive_v3.Drive` real que `wrapDriveClient` precisa
+// receber, não o SDK inteiro.
+export interface RawDriveClient {
+  files: {
+    list(params: {
+      q: string
+      fields: string
+      pageSize?: number
+      pageToken?: string
+    }): Promise<{
+      data: { files?: Array<{ id?: string | null; name?: string | null }>; nextPageToken?: string | null }
+    }>
+    get(
+      params: { fileId: string; alt: 'media' },
+      options: { responseType: 'arraybuffer' }
+    ): Promise<{ data: unknown }>
+  }
+}
+
+function escapeDriveQueryValue(valor: string): string {
+  return valor.replace(/'/g, "\\'")
+}
+
+export function wrapDriveClient(raw: RawDriveClient): DriveMediaClient {
+  return {
+    listFolder: async (folderId) => {
+      const entries: DriveEntry[] = []
+      let pageToken: string | undefined
+
+      do {
+        const res = await raw.files.list({
+          q: `'${escapeDriveQueryValue(folderId)}' in parents and trashed = false`,
+          fields: 'nextPageToken, files(id, name)',
+          pageSize: 1000,
+          ...(pageToken ? { pageToken } : {})
+        })
+        const files = res.data.files ?? []
+        for (const file of files) {
+          if (typeof file.id === 'string' && typeof file.name === 'string') {
+            entries.push({ id: file.id, name: file.name })
+          }
+        }
+        pageToken = res.data.nextPageToken ?? undefined
+      } while (pageToken)
+
+      return entries
+    },
+    downloadFile: async (fileId) => {
+      const res = await raw.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' })
+      return Buffer.from(res.data as ArrayBuffer)
+    }
+  }
+}
+
 export function createGoogleClient(creds: ServiceAccountCredentials): GoogleClients {
   const auth = new google.auth.JWT({
     email: creds.client_email,
     key: creds.private_key,
     scopes: SCOPES
   })
-  return { sheets: wrapSheetsClient(google.sheets({ version: 'v4', auth })) }
+  return {
+    sheets: wrapSheetsClient(google.sheets({ version: 'v4', auth })),
+    drive: wrapDriveClient(google.drive({ version: 'v3', auth }))
+  }
 }
