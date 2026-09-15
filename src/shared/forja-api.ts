@@ -1,4 +1,4 @@
-import type { CommandResult, Jogo, Mode } from './types'
+import type { Catalogo, CommandResult, Jogo, Mode } from './types'
 
 export interface SetupSubmitInput {
   estacaoId: string
@@ -19,4 +19,7 @@ export interface ForjaAPI {
   /* Roster completo pro `setup-form` escolher os Jogos do Evento. */
   configRoster(): Promise<CommandResult<{ roster: Jogo[] }>>
   configSetupSubmit(input: SetupSubmitInput): Promise<CommandResult>
+
+  /* Assina o evento `catalog:updated` (sync concluiu com sucesso). Retorna a função de cleanup. */
+  onCatalogUpdated(cb: (catalogo: Catalogo) => void): () => void
 }

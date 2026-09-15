@@ -12,7 +12,13 @@ const ERROR_COPY: Record<string, string> = {
   SETUP_SEM_JOGO: 'Selecione ao menos um Jogo.',
   SETUP_JOGO_DESCONHECIDO: 'Um Jogo selecionado não existe mais no roster — recarregue o Setup.',
   STORE_INDISPONIVEL: 'Não foi possível salvar agora. Tente de novo.',
-  SETUP_FALHOU: 'Algo deu errado ao salvar. Tente de novo.'
+  SETUP_FALHOU: 'Algo deu errado ao salvar. Tente de novo.',
+  ROSTER_INDISPONIVEL: 'Não foi possível carregar o roster agora. Tente de novo.',
+  CATALOGO_INDISPONIVEL: 'Não foi possível baixar o Catálogo agora. Verifique a rede e tente de novo.',
+  CATALOGO_NAO_CONFIGURADO: 'Catálogo não configurado nesta Estação. Fale com o Operador.',
+  CATALOGO_INVALIDO: 'A Planilha de Catálogo tem uma linha inválida. Fale com o Operador.',
+  CREDENCIAL_AUSENTE: 'Credencial do Catálogo ausente nesta Estação. Fale com o Operador.',
+  MIDIA_INDISPONIVEL: 'Não foi possível baixar a mídia do Catálogo agora. Verifique a rede e tente de novo.'
 }
 
 export default function SetupScreen({ onComplete, onError }: SetupScreenProps): JSX.Element {
@@ -23,11 +29,6 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
   const [submitting, setSubmitting] = useState(false)
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const submittingRef = useRef(false)
-  const onErrorRef = useRef(onError)
-
-  useEffect(() => {
-    onErrorRef.current = onError
-  })
 
   useEffect(() => {
     let alive = true
@@ -35,11 +36,11 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
       .configRoster()
       .then((res) => {
         if (!alive) return
-        if (res.ok) setRoster([...res.roster].sort((a, b) => a.ordem - b.ordem))
-        else onErrorRef.current(res.code)
+        if (res.ok) setRoster([...res.roster].sort((a, b) => a.id.localeCompare(b.id)))
+        else setErrorCode(res.code)
       })
       .catch(() => {
-        if (alive) onErrorRef.current('ROSTER_INDISPONIVEL')
+        if (alive) setErrorCode('ROSTER_INDISPONIVEL')
       })
     return () => {
       alive = false
@@ -83,6 +84,9 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
   }
 
   if (!roster) {
+    if (errorCode) {
+      return <p className="m-0 text-sm text-[#e0483f]">{ERROR_COPY[errorCode] ?? errorCode}</p>
+    }
     return <p className="m-0 text-sm opacity-70">Carregando roster…</p>
   }
 
@@ -114,7 +118,7 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
         {roster.map((jogo) => (
           <label key={jogo.id} className="flex items-center gap-2">
             <input type="checkbox" checked={selected.has(jogo.id)} onChange={() => toggleJogo(jogo.id)} />
-            {jogo.id}
+            {jogo.titulo}
           </label>
         ))}
       </fieldset>

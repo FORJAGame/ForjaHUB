@@ -14,6 +14,14 @@ public/data.json
 # Variáveis de ambiente
 .env
 .env.*
+!.env.example
+
+# Nunca deveria existir aqui (credencial da Service Account é userData/, fora
+# do repo), mas se alguém colar por engano dentro do projeto, não vai commitar
+credentials.json
+credentials.enc
+*.pem
+service-account*.json
 
 # Editor
 .vscode/settings.json

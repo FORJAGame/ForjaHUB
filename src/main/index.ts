@@ -1,17 +1,42 @@
+import { readFile } from 'node:fs/promises'
 import { join } from 'path'
-import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, protocol } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/channels'
-import type { CommandResult, Jogo, Mode } from '@shared/types'
+import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
-import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from './store/config-estacao'
+import { bootCatalog } from './catalog/boot'
+import { mediaDir } from './catalog/cache'
+import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
+import { handleConfigRoster, handleConfigSetupSubmit } from './config/handlers'
+import { SchemaIncompativelError } from './store/config-estacao'
 import { createStore } from './store'
-import { ROSTER_STUB } from './store/roster-stub'
-import { validateSetupSubmit } from './store/setup-submit'
 import type { Store } from './ports'
+
+// roda no top-level do módulo
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'forja',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: false,
+      corsEnabled: false,
+      stream: false
+    }
+  }
+])
 
 let mainWindow: BrowserWindow | null = null
 let store: Store
+
+let catalogoAtual: CommandResult<{ catalogo: Catalogo }> | null = null
+let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
+
+function getCatalogResult(): Promise<CommandResult<{ catalogo: Catalogo }>> {
+  if (catalogoAtual) return Promise.resolve(catalogoAtual)
+  return catalogoInicial ?? Promise.resolve({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
+}
 
 function runOperatorShortcut(action: OperatorShortcut): void {
   switch (action) {
@@ -110,6 +135,36 @@ if (!app.requestSingleInstanceLock()) {
     electronApp.setAppUserModelId('com.forja.hub')
     store = createStore()
 
+    // `forja://media/<id>/<tipo>` -> `userData/catalog/current/media/<id>/…`
+    // `id`/`tipo` validam contra o enum fechado em `resolveMediaAsset`
+    protocol.handle('forja', async (request) => {
+      try {
+        const parsed = parseForjaMediaUrl(request.url)
+        if (!parsed) return new Response(null, { status: 404 })
+
+        const resolved = await resolveMediaAsset(mediaDir(app.getPath('userData')), parsed.id, parsed.tipo)
+        if (!resolved) return new Response(null, { status: 404 })
+
+        const data = await readFile(resolved.path)
+        return new Response(data, { headers: { 'content-type': resolved.contentType } })
+      } catch (err) {
+        console.error('[main] forja:// handler falhou:', err)
+        return new Response(null, { status: 500 })
+      }
+    })
+
+    catalogoInicial = bootCatalog(app.getPath('userData'), {
+      onSynced: (result) => {
+        catalogoAtual = result
+        if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send(IPC.CATALOG_UPDATED, result.catalogo)
+        }
+      }
+    })
+    catalogoInicial.then((result) => {
+      if (!catalogoAtual) catalogoAtual = result
+    })
+
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
@@ -128,32 +183,16 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
 
-    // #TODO: catalogSource real
-    ipcMain.handle(
-      IPC.CONFIG_ROSTER,
-      (): CommandResult<{ roster: Jogo[] }> => ({ ok: true, roster: ROSTER_STUB })
+    ipcMain.handle(IPC.CONFIG_ROSTER, (): Promise<CommandResult<{ roster: Jogo[] }>> =>
+      handleConfigRoster(getCatalogResult)
     )
 
-    ipcMain.handle(IPC.CONFIG_SETUP_SUBMIT, async (_event, input: unknown): Promise<CommandResult> => {
-      const validated = validateSetupSubmit(
-        input,
-        ROSTER_STUB.map((jogo) => jogo.id)
-      )
-      if (!validated.ok) return validated
-      const { estacaoId, eventoId, jogosSelecionados } = validated
-      try {
-        await store.gravarConfigEstacao({
-          estacaoId,
-          eventoId,
-          jogosSelecionados,
-          schemaVersion: CURRENT_SCHEMA_VERSION
-        })
-      } catch (err) {
-        console.error('[main] falha gravando station.json:', err)
-        return { ok: false, code: 'STORE_INDISPONIVEL' }
-      }
-      return { ok: true }
-    })
+    ipcMain.handle(IPC.CONFIG_SETUP_SUBMIT, (_event, input: unknown): Promise<CommandResult> =>
+      handleConfigSetupSubmit(input, {
+        getCatalogResult,
+        gravarConfigEstacao: (config) => store.gravarConfigEstacao(config)
+      })
+    )
 
     registerGlobalShortcuts()
     createWindow()
