@@ -58,6 +58,10 @@ describe('JogoSchema', () => {
     expect(JogoSchema.safeParse(jogoValido({ exeRelativo: 'bin\\Jogo.exe' })).success).toBe(true)
   })
 
+  it('aceita exeRelativo vazio (Jogo distribuído como .zip, caminho do .exe só se sabe depois de extrair)', () => {
+    expect(JogoSchema.safeParse(jogoValido({ exeRelativo: '' })).success).toBe(true)
+  })
+
   it('rejeita ano fora da faixa plausível', () => {
     expect(JogoSchema.safeParse(jogoValido({ ano: 1800 })).success).toBe(false)
   })

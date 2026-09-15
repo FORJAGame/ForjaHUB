@@ -12,10 +12,12 @@ const MODALIDADES = ['single-player', 'multiplayer'] as const
 
 /**
  * Sem `..` e sem caminho absoluto, nem POSIX (`/...`),
- * nem Windows (`C:\...`, `C:/...`, `\...`).
+ * nem Windows (`C:\...`, `C:/...`, `\...`). Vazio é aceito: o Jogo chega como
+ * `.zip` pela Planilha, o caminho do `.exe` só se sabe depois de extrair
+ * (Story 12/Pista B) — até lá, `exeRelativo` fica vazio.
  */
 function isSafeRelativePath(bruto: string): boolean {
-  if (!bruto) return false
+  if (bruto === '') return true
   const normalizado = bruto.replace(/\\/g, '/')
   if (normalizado.startsWith('/')) return false
   if (/^[a-zA-Z]:/.test(normalizado)) return false
