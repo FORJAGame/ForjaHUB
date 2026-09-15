@@ -17,7 +17,8 @@ const ERROR_COPY: Record<string, string> = {
   CATALOGO_INDISPONIVEL: 'Não foi possível baixar o Catálogo agora. Verifique a rede e tente de novo.',
   CATALOGO_NAO_CONFIGURADO: 'Catálogo não configurado nesta Estação. Fale com o Operador.',
   CATALOGO_INVALIDO: 'A Planilha de Catálogo tem uma linha inválida. Fale com o Operador.',
-  CREDENCIAL_AUSENTE: 'Credencial do Catálogo ausente nesta Estação. Fale com o Operador.'
+  CREDENCIAL_AUSENTE: 'Credencial do Catálogo ausente nesta Estação. Fale com o Operador.',
+  MIDIA_INDISPONIVEL: 'Não foi possível baixar a mídia do Catálogo agora. Verifique a rede e tente de novo.'
 }
 
 export default function SetupScreen({ onComplete, onError }: SetupScreenProps): JSX.Element {
