@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { CatalogoSchema, JogoSchema, JogosSchema } from '../schema'
+import { CatalogoSchema, JogoMetadataArraySchema, JogoMetadataSchema, JogoSchema, JogosSchema } from '../schema'
 
 function jogoValido(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
   return {
@@ -13,6 +13,7 @@ function jogoValido(overrides: Partial<Record<string, unknown>> = {}): Record<st
     sinopse: 'Uma sinopse qualquer.',
     redesUrl: 'https://exemplo.com/jogo-a',
     exeRelativo: 'Jogo.exe',
+    detalheImagens: ['detalhe-1'],
     ...overrides
   }
 }
@@ -96,6 +97,35 @@ describe('JogoSchema', () => {
       }
     }
   )
+})
+
+describe('JogoSchema.detalheImagens', () => {
+  it('rejeita detalheImagens vazio (mídia sem nenhum detalhe-N)', () => {
+    expect(JogoSchema.safeParse(jogoValido({ detalheImagens: [] })).success).toBe(false)
+  })
+
+  it('aceita detalheImagens com um ou mais itens', () => {
+    const result = JogoSchema.safeParse(jogoValido({ detalheImagens: ['detalhe-1', 'detalhe-3'] }))
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.detalheImagens).toEqual(['detalhe-1', 'detalhe-3'])
+  })
+})
+
+function soMetadados(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
+  const jogo = jogoValido(overrides)
+  delete jogo.detalheImagens
+  return jogo
+}
+
+describe('JogoMetadataSchema (linha da Planilha, sem mídia)', () => {
+  it('aceita metadados sem detalheImagens — mídia é descoberta à parte via Drive', () => {
+    expect(JogoMetadataSchema.safeParse(soMetadados()).success).toBe(true)
+  })
+
+  it('JogoMetadataArraySchema também rejeita id duplicado entre linhas', () => {
+    const result = JogoMetadataArraySchema.safeParse([soMetadados(), soMetadados()])
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('JogosSchema (tudo-ou-nada + unicidade)', () => {

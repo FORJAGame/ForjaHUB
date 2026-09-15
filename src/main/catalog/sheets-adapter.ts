@@ -1,5 +1,5 @@
-import type { Jogo } from '@shared/types'
-import { JogosSchema } from './schema'
+import type { JogoMetadata } from './schema'
+import { JogoMetadataArraySchema } from './schema'
 
 // Superfície mínima do cliente Sheets que este adaptador precisa, não é o `sheets_v4.Sheets`.
 export interface SheetsValuesClient {
@@ -21,7 +21,7 @@ export class CatalogoInvalidoError extends Error {
 
 const RANGE = 'A1:Z1000'
 
-const HEADER_MAP: Record<string, keyof Jogo> = {
+const HEADER_MAP: Record<string, keyof JogoMetadata> = {
   id: 'id',
   titulo: 'titulo',
   ano: 'ano',
@@ -53,19 +53,19 @@ export function rowsToRawJogos(rows: string[][]): Record<string, string>[] {
     })
 }
 
-// Lê a Planilha e valida: qualquer linha fora do `JogoSchema`
+// Lê a Planilha e valida: qualquer linha fora do `JogoMetadataSchema`
 // lança `CatalogoInvalidoError` e descarta o array inteiro.
 // Sem coluna de ordem, a Planilha não define ordem de exibição;
 // o Catálogo é sempre ordenado alfabeticamente por `id`.
 export async function fetchCatalogo(
   sheets: SheetsValuesClient,
   spreadsheetId: string
-): Promise<Jogo[]> {
+): Promise<JogoMetadata[]> {
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: RANGE })
   const rows = (res.data.values ?? []) as string[][]
   const rawJogos = rowsToRawJogos(rows)
 
-  const parsed = JogosSchema.safeParse(rawJogos)
+  const parsed = JogoMetadataArraySchema.safeParse(rawJogos)
   if (!parsed.success) {
     throw new CatalogoInvalidoError(parsed.error.message)
   }

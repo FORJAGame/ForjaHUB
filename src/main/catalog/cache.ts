@@ -1,12 +1,25 @@
+import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Catalogo } from '@shared/types'
-import { writeJsonAtomic } from '../store/atomic-write'
+import { swapDirAtomic } from '../store/atomic-write'
 import { CatalogoSchema } from './schema'
 
-// `catalog.json` em `userData/catalog/`
+// cache local
+export function currentDir(baseDir: string): string {
+  return join(baseDir, 'catalog', 'current')
+}
+
 export function catalogPath(baseDir: string): string {
-  return join(baseDir, 'catalog', 'catalog.json')
+  return join(currentDir(baseDir), 'catalog.json')
+}
+
+export function mediaDir(baseDir: string): string {
+  return join(currentDir(baseDir), 'media')
+}
+
+export function newStagingDir(baseDir: string): string {
+  return join(baseDir, 'catalog', `staging-${Date.now()}-${process.pid}-${randomBytes(4).toString('hex')}`)
 }
 
 // Ausente/corrompido == `null`, nunca lança.
@@ -37,6 +50,6 @@ export async function readCatalogoCache(baseDir: string): Promise<Catalogo | nul
   return result.data
 }
 
-export async function writeCatalogoCache(baseDir: string, catalogo: Catalogo): Promise<void> {
-  await writeJsonAtomic(catalogPath(baseDir), catalogo)
+export async function commitStagingCatalog(baseDir: string, staging: string): Promise<void> {
+  await swapDirAtomic(currentDir(baseDir), staging)
 }

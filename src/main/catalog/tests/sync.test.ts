@@ -2,8 +2,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { DriveMediaClient } from '../google-client'
 import type { SheetsValuesClient } from '../sheets-adapter'
-import { catalogPath } from '../cache'
+import { catalogPath, mediaDir } from '../cache'
 import { sync } from '../sync'
 
 const dirs: string[] = []
@@ -51,8 +52,35 @@ const LINHA_INVALIDA = [
   'Jogo.exe'
 ]
 
-function fakeClient(get: SheetsValuesClient['spreadsheets']['values']['get']): SheetsValuesClient {
+function fakeSheetsClient(get: SheetsValuesClient['spreadsheets']['values']['get']): SheetsValuesClient {
   return { spreadsheets: { values: { get } } }
+}
+
+const MEDIA_FOLDER_ID = 'media-root'
+
+/** Pasta Drive completa: capa/hero/logo + detalhe-1 pro `jogo-a`. */
+const PASTA_JOGO_A: Array<{ id: string; name: string }> = [
+  { id: 'f-capa', name: 'capa.png' },
+  { id: 'f-hero', name: 'hero.jpg' },
+  { id: 'f-logo', name: 'logo.png' },
+  { id: 'f-detalhe-1', name: 'detalhe-1.png' }
+]
+
+function fakeDriveClient(
+  folders: Record<string, Array<{ id: string; name: string }>>,
+  overrides: Partial<DriveMediaClient> = {}
+): DriveMediaClient {
+  return {
+    listFolder: overrides.listFolder ?? (async (folderId) => folders[folderId] ?? []),
+    downloadFile: overrides.downloadFile ?? (async () => Buffer.from('fake-bytes'))
+  }
+}
+
+function driveCompleta(): DriveMediaClient {
+  return fakeDriveClient({
+    [MEDIA_FOLDER_ID]: [{ id: 'sub-jogo-a', name: 'jogo-a' }],
+    'sub-jogo-a': PASTA_JOGO_A
+  })
 }
 
 describe('sync (orquestrador)', () => {
@@ -65,50 +93,143 @@ describe('sync (orquestrador)', () => {
   it('spreadsheetId não configurado -> CATALOGO_NAO_CONFIGURADO', async () => {
     const baseDir = tmpDir()
     const get = vi.fn()
-    const result = await sync([], { baseDir, sheetsClient: fakeClient(get) })
+    const result = await sync([], { baseDir, sheetsClient: fakeSheetsClient(get), driveClient: driveCompleta() })
     expect(result).toEqual({ ok: false, code: 'CATALOGO_NAO_CONFIGURADO' })
     expect(get).not.toHaveBeenCalled()
   })
 
-  it('happy path: sync completa, catalog.json gravado atomicamente', async () => {
+  it('driveMediaFolderId não configurado -> CATALOGO_NAO_CONFIGURADO, mesmo com spreadsheetId ok', async () => {
+    const baseDir = tmpDir()
+    const get = vi.fn()
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: driveCompleta()
+    })
+    expect(result).toEqual({ ok: false, code: 'CATALOGO_NAO_CONFIGURADO' })
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('happy path: sync completa, catalog.json + media/ gravados atomicamente sob current/', async () => {
     const baseDir = tmpDir()
     const get = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA] } })
-    const result = await sync([], { baseDir, spreadsheetId: 'sheet-1', sheetsClient: fakeClient(get) })
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: driveCompleta()
+    })
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.catalogo.jogos).toHaveLength(1)
-    expect(result.catalogo.jogos[0]).toMatchObject({ id: 'jogo-a', titulo: 'Jogo A' })
+    expect(result.catalogo.jogos[0]).toMatchObject({
+      id: 'jogo-a',
+      titulo: 'Jogo A',
+      detalheImagens: ['detalhe-1']
+    })
     expect(typeof result.catalogo.sincronizadoEm).toBe('string')
 
     const persisted = JSON.parse(readFileSync(catalogPath(baseDir), 'utf-8'))
     expect(persisted).toEqual(result.catalogo)
+    expect(readFileSync(join(mediaDir(baseDir), 'jogo-a', 'capa.png'))).toBeInstanceOf(Buffer)
+    expect(readFileSync(join(mediaDir(baseDir), 'jogo-a', 'detalhe-1.png'))).toBeInstanceOf(Buffer)
   })
 
-  it('linha inválida -> CATALOGO_INVALIDO, Cache anterior preservado intocado', async () => {
+  it('linha inválida -> CATALOGO_INVALIDO, Cache anterior preservado intocado (mídia nem é tentada)', async () => {
     const baseDir = tmpDir()
-    mkdirSync(join(baseDir, 'catalog'), { recursive: true })
+    mkdirSync(join(baseDir, 'catalog', 'current'), { recursive: true })
     const cacheAnterior = { jogos: [], sincronizadoEm: '2020-01-01T00:00:00.000Z' }
     writeFileSync(catalogPath(baseDir), JSON.stringify(cacheAnterior))
 
     const get = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA, LINHA_INVALIDA] } })
-    const result = await sync([], { baseDir, spreadsheetId: 'sheet-1', sheetsClient: fakeClient(get) })
+    const listFolder = vi.fn()
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: fakeDriveClient({}, { listFolder })
+    })
 
     expect(result).toEqual({ ok: false, code: 'CATALOGO_INVALIDO' })
     expect(JSON.parse(readFileSync(catalogPath(baseDir), 'utf-8'))).toEqual(cacheAnterior)
+    expect(listFolder).not.toHaveBeenCalled()
   })
 
-  it('falha de rede/API -> CATALOGO_INDISPONIVEL', async () => {
+  it('falha de rede/API na Planilha -> CATALOGO_INDISPONIVEL', async () => {
     const baseDir = tmpDir()
     const get = vi.fn().mockRejectedValue(new Error('ETIMEDOUT'))
-    const result = await sync([], { baseDir, spreadsheetId: 'sheet-1', sheetsClient: fakeClient(get) })
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: driveCompleta()
+    })
     expect(result).toEqual({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
   })
 
-  it('credencial real é lida do disco quando nenhum sheetsClient é injetado', async () => {
+  it('asset obrigatório ausente (sem logo.*) -> MIDIA_INDISPONIVEL, Cache anterior preservado', async () => {
+    const baseDir = tmpDir()
+    mkdirSync(join(baseDir, 'catalog', 'current'), { recursive: true })
+    const cacheAnterior = { jogos: [], sincronizadoEm: '2020-01-01T00:00:00.000Z' }
+    writeFileSync(catalogPath(baseDir), JSON.stringify(cacheAnterior))
+
+    const get = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA] } })
+    const drive = fakeDriveClient({
+      [MEDIA_FOLDER_ID]: [{ id: 'sub-jogo-a', name: 'jogo-a' }],
+      'sub-jogo-a': PASTA_JOGO_A.filter((f) => !f.name.startsWith('logo'))
+    })
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: drive
+    })
+
+    expect(result).toEqual({ ok: false, code: 'MIDIA_INDISPONIVEL' })
+    expect(JSON.parse(readFileSync(catalogPath(baseDir), 'utf-8'))).toEqual(cacheAnterior)
+  })
+
+  it('pasta de mídia ausente pro Jogo -> MIDIA_INDISPONIVEL', async () => {
+    const baseDir = tmpDir()
+    const get = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA] } })
+    const drive = fakeDriveClient({ [MEDIA_FOLDER_ID]: [] })
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: drive
+    })
+    expect(result).toEqual({ ok: false, code: 'MIDIA_INDISPONIVEL' })
+  })
+
+  it('download de um asset falha (rede) -> MIDIA_INDISPONIVEL', async () => {
+    const baseDir = tmpDir()
+    const get = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA] } })
+    const drive = fakeDriveClient(
+      { [MEDIA_FOLDER_ID]: [{ id: 'sub-jogo-a', name: 'jogo-a' }], 'sub-jogo-a': PASTA_JOGO_A },
+      { downloadFile: async () => Promise.reject(new Error('ETIMEDOUT')) }
+    )
+    const result = await sync([], {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: drive
+    })
+    expect(result).toEqual({ ok: false, code: 'MIDIA_INDISPONIVEL' })
+  })
+
+  it('credencial real é lida do disco quando nenhum client é injetado', async () => {
     const baseDir = tmpDir()
     writeCredentials(baseDir)
-    // Sem sheetsClient injetado e sem rede real disponível nos testes: a
+    // Sem sheetsClient/driveClient injetados e sem rede real disponível nos testes: a
     // credencial válida passa da 1ª barreira, mas o cliente `googleapis` real
     // tentaria uma chamada de rede de verdade. `spreadsheetId` vazio garante
     // que abortamos ANTES disso, provando que a credencial foi lida do disco
@@ -116,6 +237,19 @@ describe('sync (orquestrador)', () => {
     const result = await sync([], { baseDir })
     expect(result).toEqual({ ok: false, code: 'CATALOGO_NAO_CONFIGURADO' })
   })
+
+  it.each([
+    { sheetsClient: fakeSheetsClient(vi.fn()), driveClient: undefined },
+    { sheetsClient: undefined, driveClient: driveCompleta() }
+  ])(
+    'injeção assimétrica (só sheetsClient OU só driveClient) -> lança erro, nunca cai pro client real',
+    async (deps) => {
+      const baseDir = tmpDir()
+      await expect(
+        sync([], { baseDir, spreadsheetId: 'sheet-1', mediaFolderId: MEDIA_FOLDER_ID, ...deps })
+      ).rejects.toThrow(/sheetsClient e driveClient precisam ser injetados juntos/)
+    }
+  )
 
   it('mutex single-flight: chamada concorrente reusa a mesma Promise e só bate na Planilha uma vez', async () => {
     const baseDir = tmpDir()
@@ -126,7 +260,13 @@ describe('sync (orquestrador)', () => {
           resolveGet = resolve
         })
     )
-    const deps = { baseDir, spreadsheetId: 'sheet-1', sheetsClient: fakeClient(get) }
+    const deps = {
+      baseDir,
+      spreadsheetId: 'sheet-1',
+      mediaFolderId: MEDIA_FOLDER_ID,
+      sheetsClient: fakeSheetsClient(get),
+      driveClient: driveCompleta()
+    }
 
     const p1 = sync([], deps)
     const p2 = sync([], deps)
@@ -140,7 +280,7 @@ describe('sync (orquestrador)', () => {
 
     // Depois de resolvido, o mutex libera: uma 3ª chamada dispara um novo fetch.
     const get2 = vi.fn().mockResolvedValue({ data: { values: [HEADER, LINHA_VALIDA] } })
-    const r3 = await sync([], { ...deps, sheetsClient: fakeClient(get2) })
+    const r3 = await sync([], { ...deps, sheetsClient: fakeSheetsClient(get2), driveClient: driveCompleta() })
     expect(r3.ok).toBe(true)
     expect(get2).toHaveBeenCalledTimes(1)
   })

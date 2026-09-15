@@ -1,12 +1,12 @@
 import { z } from 'zod'
 
 /**
- * Validação tudo-ou-nada da Planilha de Catálogo.
- * Uma linha inválida derruba o `z.array` inteiro, quem chama descarta o
- * sync completo e mantém o Cache anterior intocado.
+ * Validação tudo-ou-nada da Planilha de Catálogo + mídia.
+ * Uma linha/asset inválido derruba o `z.array`/download inteiro, quem chama
+ * descarta o sync completo e mantém o Cache anterior intocado.
  */
 
-const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+export const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const MODALIDADES = ['single-player', 'multiplayer'] as const
 
@@ -27,7 +27,13 @@ function isUrlOuVazio(bruto: string): boolean {
   return bruto === '' || z.string().url().safeParse(bruto).success
 }
 
-export const JogoSchema = z.object({
+function idsUnicos<T extends { id: string }>(itens: T[]): boolean {
+  return new Set(itens.map((item) => item.id)).size === itens.length
+}
+
+const UNICIDADE_MSG = 'ids duplicados entre jogos, cada Jogo precisa de um id único'
+
+export const JogoMetadataSchema = z.object({
   id: z
     .string()
     .trim()
@@ -45,13 +51,21 @@ export const JogoSchema = z.object({
     .refine(isSafeRelativePath, 'exeRelativo inválido (path absoluto ou `..`)')
 })
 
+export type JogoMetadata = z.infer<typeof JogoMetadataSchema>
+
+export const JogoMetadataArraySchema = z.array(JogoMetadataSchema).refine(idsUnicos, {
+  message: UNICIDADE_MSG
+})
+
+export const JogoSchema = JogoMetadataSchema.extend({
+  detalheImagens: z.array(z.string()).min(1)
+})
+
 export type JogoValidado = z.infer<typeof JogoSchema>
 
-export const JogosSchema = z
-  .array(JogoSchema)
-  .refine((jogos) => new Set(jogos.map((jogo) => jogo.id)).size === jogos.length, {
-    message: 'ids duplicados entre jogos, cada Jogo precisa de um id único'
-  })
+export const JogosSchema = z.array(JogoSchema).refine(idsUnicos, {
+  message: UNICIDADE_MSG
+})
 
 export const CatalogoSchema = z.object({
   jogos: JogosSchema,

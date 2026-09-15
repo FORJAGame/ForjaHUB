@@ -56,6 +56,7 @@ export interface Jogo {
    * (sem `..`, sem path absoluto) mas ainda não usado pra lançar nada.
    */
   exeRelativo: string
+  detalheImagens: string[]
 }
 
 export interface Catalogo {

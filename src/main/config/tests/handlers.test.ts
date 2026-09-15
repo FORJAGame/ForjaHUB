@@ -13,7 +13,8 @@ const CATALOGO: Catalogo = {
       modalidade: 'single-player',
       sinopse: 'Sinopse.',
       redesUrl: '',
-      exeRelativo: 'Jogo.exe'
+      exeRelativo: 'Jogo.exe',
+      detalheImagens: ['detalhe-1']
     }
   ],
   sincronizadoEm: '2026-09-14T00:00:00.000Z'
