@@ -19,7 +19,9 @@ export class CatalogoInvalidoError extends Error {
   }
 }
 
-const RANGE = 'A1:Z1000'
+// Nome de aba explícito: sem ele a API lê a 1ª aba por índice, não
+// necessariamente a JOGOS (a Planilha real tem outras abas, ex. respostas do Form).
+const RANGE = 'JOGOS!A1:Z1000'
 
 const HEADER_MAP: Record<string, keyof JogoMetadata> = {
   id: 'id',
