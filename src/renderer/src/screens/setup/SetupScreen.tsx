@@ -1,6 +1,7 @@
 import { type FormEvent, type JSX, useEffect, useRef, useState } from 'react'
 import { normalizeId } from '@shared/normalize'
 import type { Jogo, Mode } from '@shared/types'
+import { BootScreen, ErrorPlate } from '../../design/primitives'
 
 interface SetupScreenProps {
   onComplete: (mode: Mode) => void
@@ -84,54 +85,59 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
   }
 
   if (!roster) {
-    if (errorCode) {
-      return <p className="m-0 text-sm text-[#e0483f]">{ERROR_COPY[errorCode] ?? errorCode}</p>
-    }
-    return <p className="m-0 text-sm opacity-70">Carregando roster…</p>
+    return (
+      <>
+        <BootScreen statusText="Carregando roster…" />
+        {errorCode && <ErrorPlate message={ERROR_COPY[errorCode] ?? errorCode} />}
+      </>
+    )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col gap-4 text-[#f4e9e3]">
-      <label className="flex flex-col gap-1 text-sm">
-        Identificador da Estação
-        <input
-          autoFocus
-          value={estacaoId}
-          onChange={(e) => setEstacaoId(e.target.value)}
-          placeholder="tv-principal"
-          className="rounded border border-white/20 bg-black/30 px-2 py-1 text-[#f4e9e3]"
-        />
-      </label>
+    <main className="flex h-full select-none flex-col items-center justify-center gap-6 text-ink-primary">
+      <p className="m-0 text-xs tracking-[0.3em] opacity-50">FORJA HUB — SETUP</p>
+      <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col gap-4 text-[#f4e9e3]">
+        <label className="flex flex-col gap-1 text-sm">
+          Identificador da Estação
+          <input
+            autoFocus
+            value={estacaoId}
+            onChange={(e) => setEstacaoId(e.target.value)}
+            placeholder="tv-principal"
+            className="rounded border border-white/20 bg-black/30 px-2 py-1 text-[#f4e9e3]"
+          />
+        </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Identificador do Evento
-        <input
-          value={eventoId}
-          onChange={(e) => setEventoId(e.target.value)}
-          placeholder="recnplay-2026"
-          className="rounded border border-white/20 bg-black/30 px-2 py-1 text-[#f4e9e3]"
-        />
-      </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Identificador do Evento
+          <input
+            value={eventoId}
+            onChange={(e) => setEventoId(e.target.value)}
+            placeholder="recnplay-2026"
+            className="rounded border border-white/20 bg-black/30 px-2 py-1 text-[#f4e9e3]"
+          />
+        </label>
 
-      <fieldset className="flex flex-col gap-1 text-sm">
-        <legend className="mb-1 opacity-70">Jogos do Evento</legend>
-        {roster.map((jogo) => (
-          <label key={jogo.id} className="flex items-center gap-2">
-            <input type="checkbox" checked={selected.has(jogo.id)} onChange={() => toggleJogo(jogo.id)} />
-            {jogo.titulo}
-          </label>
-        ))}
-      </fieldset>
+        <fieldset className="flex flex-col gap-1 text-sm">
+          <legend className="mb-1 opacity-70">Jogos do Evento</legend>
+          {roster.map((jogo) => (
+            <label key={jogo.id} className="flex items-center gap-2">
+              <input type="checkbox" checked={selected.has(jogo.id)} onChange={() => toggleJogo(jogo.id)} />
+              {jogo.titulo}
+            </label>
+          ))}
+        </fieldset>
 
-      {errorCode && <p className="m-0 text-sm text-[#e0483f]">{ERROR_COPY[errorCode] ?? errorCode}</p>}
+        {errorCode && <p className="m-0 text-sm text-[#e0483f]">{ERROR_COPY[errorCode] ?? errorCode}</p>}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded bg-[#d21312] px-4 py-2 font-semibold disabled:opacity-50"
-      >
-        Sincronizar e continuar
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded bg-[#d21312] px-4 py-2 font-semibold disabled:opacity-50"
+        >
+          Sincronizar e continuar
+        </button>
+      </form>
+    </main>
   )
 }

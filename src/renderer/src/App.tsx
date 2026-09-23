@@ -65,14 +65,13 @@ export default function App(): JSX.Element {
 
   if (state.mode === 'setup') {
     return (
-      <main className="flex h-full select-none flex-col items-center justify-center gap-6 text-ink-primary">
-        <p className="m-0 text-xs tracking-[0.3em] opacity-50">FORJA HUB — SETUP</p>
+      <>
         <SetupScreen
           onComplete={(mode) => dispatch({ type: 'set-mode', mode })}
           onError={(code) => dispatch({ type: 'error-plate', code })}
         />
         {state.errorPlate && <ErrorPlate message={state.errorPlate} />}
-      </main>
+      </>
     )
   }
 
