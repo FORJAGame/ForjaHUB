@@ -6,7 +6,7 @@ import { IPC } from '@shared/channels'
 import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
 import { bootCatalog } from './catalog/boot'
-import { mediaDir } from './catalog/cache'
+import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
 import { handleConfigRoster, handleConfigSetupSubmit } from './config/handlers'
 import { SchemaIncompativelError } from './store/config-estacao'
@@ -131,7 +131,7 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.focus()
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     electronApp.setAppUserModelId('com.forja.hub')
     store = createStore()
 
@@ -152,6 +152,8 @@ if (!app.requestSingleInstanceLock()) {
         return new Response(null, { status: 500 })
       }
     })
+
+    await cleanupOrphanedCacheDirs(app.getPath('userData'))
 
     catalogoInicial = bootCatalog(app.getPath('userData'), {
       onSynced: (result) => {

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Catalogo } from '@shared/types'
 import { swapDirAtomic } from '../store/atomic-write'
@@ -52,4 +52,29 @@ export async function readCatalogoCache(baseDir: string): Promise<Catalogo | nul
 
 export async function commitStagingCatalog(baseDir: string, staging: string): Promise<void> {
   await swapDirAtomic(currentDir(baseDir), staging)
+}
+
+export async function cleanupOrphanedCacheDirs(
+  baseDir: string,
+  deps: { readdir?: typeof readdir; rm?: typeof rm } = {}
+): Promise<void> {
+  const doReaddir = deps.readdir ?? readdir
+  const doRm = deps.rm ?? rm
+  const catalogDir = join(baseDir, 'catalog')
+
+  let entries: string[]
+  try {
+    entries = await doReaddir(catalogDir)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return // sem catalog/ ainda (1º boot) -- nada a limpar
+    console.error(`[catalog] cleanupOrphanedCacheDirs: falha ao ler '${catalogDir}', seguindo sem limpar:`, err)
+    return
+  }
+
+  const orfaos = entries.filter((nome) => nome.startsWith('current.previous-') || nome.startsWith('staging-'))
+  for (const nome of orfaos) {
+    await doRm(join(catalogDir, nome), { recursive: true, force: true }).catch((err) => {
+      console.error(`[catalog] cleanupOrphanedCacheDirs: falha ao remover '${nome}', seguindo:`, err)
+    })
+  }
 }
