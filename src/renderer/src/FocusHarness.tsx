@@ -48,13 +48,9 @@ export default function FocusHarness(): JSX.Element {
               key={i}
               onMouseEnter={() => focusHere(i)}
               onClick={() => confirm(i)}
-              className="flex h-16 w-16 cursor-pointer items-center justify-center text-lg transition-transform"
-              style={{
-                border: focused ? '2px solid #d21312' : '2px solid transparent',
-                transform: focused ? 'scale(1.22) translateY(-9px)' : 'scale(1)',
-                background: '#241a16',
-                color: '#f4e9e3'
-              }}
+              className={`flex h-16 w-16 cursor-pointer items-center justify-center bg-surface-raised text-lg text-ink-primary transition-transform ${
+                focused ? 'focus-ring scale-[1.22] -translate-y-2.25' : 'border-2 border-transparent scale-100'
+              }`}
             >
               {i + 1}
             </div>

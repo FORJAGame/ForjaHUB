@@ -1,4 +1,5 @@
 import { type JSX, useEffect, useReducer, useState } from 'react'
+import { BootScreen, ErrorPlate } from './design/primitives'
 import FocusHarness from './FocusHarness'
 import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
@@ -53,22 +54,31 @@ export default function App(): JSX.Element {
     }
   }, [])
 
+  if (state.mode === 'boot') {
+    return (
+      <>
+        <BootScreen />
+        {state.errorPlate && <ErrorPlate message={state.errorPlate} />}
+      </>
+    )
+  }
+
   if (state.mode === 'setup') {
     return (
-      <main className="flex h-full select-none flex-col items-center justify-center gap-6 text-[#f4e9e3]">
+      <main className="flex h-full select-none flex-col items-center justify-center gap-6 text-ink-primary">
         <p className="m-0 text-xs tracking-[0.3em] opacity-50">FORJA HUB — SETUP</p>
-        {state.errorPlate && <p className="m-0 text-[#e0483f]">erro: {state.errorPlate}</p>}
         <SetupScreen
           onComplete={(mode) => dispatch({ type: 'set-mode', mode })}
           onError={(code) => dispatch({ type: 'error-plate', code })}
         />
+        {state.errorPlate && <ErrorPlate message={state.errorPlate} />}
       </main>
     )
   }
 
   return (
     <main
-      className="flex h-full select-none flex-col items-center justify-center gap-6 text-[#f4e9e3]"
+      className="flex h-full select-none flex-col items-center justify-center gap-6 text-ink-primary"
       style={{ cursor: cursorVisible ? 'default' : 'none' }}
     >
       <div className="flex flex-col items-center gap-2">
@@ -76,7 +86,6 @@ export default function App(): JSX.Element {
         <p className="m-0 text-3xl">
           modo: <strong>{state.mode}</strong>
         </p>
-        {state.errorPlate && <p className="m-0 text-[#e0483f]">erro: {state.errorPlate}</p>}
       </div>
 
       <FocusHarness />
@@ -86,6 +95,8 @@ export default function App(): JSX.Element {
           Controle desconectado — reconecte ou use o teclado.
         </p>
       )}
+
+      {state.errorPlate && <ErrorPlate message={state.errorPlate} />}
     </main>
   )
 }
