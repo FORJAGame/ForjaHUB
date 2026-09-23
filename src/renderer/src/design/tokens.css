@@ -1,0 +1,163 @@
+@font-face {
+  font-family: 'Combat';
+  src: url('./design/fonts/combat/Combat.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Karrik';
+  src: url('./design/fonts/karrik/Karrik-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Karrik';
+  src: url('./design/fonts/karrik/Karrik-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@theme {
+  --color-surface-base: #140d0b;
+  --color-surface-raised: #241a16;
+  --color-hero-scrim: rgba(20, 13, 11, 0.74);
+  --color-ink-primary: #f4e9e3;
+  --color-ink-secondary: #b39a8f;
+  --color-ink-on-action: #f4e9e3;
+  --color-action: #d21312;
+  --color-action-border: #e0483f;
+  --color-border-hairline: #3a2b24;
+  --color-cobrand-cesar: #9c6b4f;
+  --color-overlay-launch: rgba(20, 13, 11, 0.92);
+
+  --radius-xs: 2px;
+  --radius-chip: 3px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 24px;
+
+  --spacing-screen-margin: 48px;
+  --spacing-card-gap: 24px;
+  --spacing-panel-pad: 40px;
+
+  --font-display: 'Combat', 'Roboto Slab', Rockwell, Georgia, serif;
+  --font-sans: 'Karrik', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+}
+
+@utility text-display-forja {
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.018em;
+}
+
+@utility text-display-label {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+@utility text-section-label {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
+@utility text-game-title-fallback {
+  font-family: var(--font-sans);
+  font-size: 88px;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+}
+
+@utility text-heading {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+}
+
+@utility text-body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+
+@utility text-meta {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+}
+
+@utility text-label-caps {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.16em;
+}
+
+@utility text-pill {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+}
+
+@utility text-card-plate {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
+}
+
+@utility text-operator-body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+@utility text-error-plate {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+@utility focus-ring {
+  border: 2px solid var(--color-action);
+  box-shadow: 0 0 6px 0 rgba(210, 19, 18, 0.45);
+}
+
+@keyframes forja-ember-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+}
