@@ -130,4 +130,29 @@ describe('bootCatalog', () => {
     expect(result).toEqual({ ok: true, catalogo: fresco })
     expect(onSynced).toHaveBeenCalledWith({ ok: true, catalogo: fresco })
   })
+
+  it('sync falha DENTRO do budget + Cache presente -> usa o Cache (Estação configurada ligando offline)', async () => {
+    vi.useFakeTimers()
+
+    const cache = catalogo('2026-09-01T00:00:00.000Z')
+    const sync = vi.fn().mockResolvedValue({ ok: false, code: 'CATALOGO_INDISPONIVEL' } satisfies Result)
+    const readCache = vi.fn().mockResolvedValue(cache)
+    const onSynced = vi.fn()
+
+    const result = await bootCatalog('/base', { sync, readCache, onSynced })
+
+    expect(result).toEqual({ ok: true, catalogo: cache })
+    expect(onSynced).not.toHaveBeenCalled()
+  })
+
+  it('sync falha DENTRO do budget + sem Cache -> devolve a falha original', async () => {
+    vi.useFakeTimers()
+
+    const sync = vi.fn().mockResolvedValue({ ok: false, code: 'CREDENCIAL_AUSENTE' } satisfies Result)
+    const readCache = vi.fn().mockResolvedValue(null)
+
+    const result = await bootCatalog('/base', { sync, readCache })
+
+    expect(result).toEqual({ ok: false, code: 'CREDENCIAL_AUSENTE' })
+  })
 })
