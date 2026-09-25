@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './design/tokens.css';
 
 /* Reset mínimo do shell Kiosk.*/
 html,
@@ -9,6 +10,7 @@ body,
 
 body {
   margin: 0;
-  background: #140d0b;
+  background: var(--color-surface-base);
+  color-scheme: dark;
   overflow: hidden;
 }
