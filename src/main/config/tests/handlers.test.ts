@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { Catalogo, CommandResult } from '@shared/types'
-import { handleConfigRoster, handleConfigSetupSubmit } from '../handlers'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Catalogo, CommandResult, ConfigEstacao, Jogo } from '@shared/types'
+import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from '../../store/config-estacao'
+import { handleAppHydrate, handleConfigRoster, handleConfigSetupSubmit } from '../handlers'
 
 const CATALOGO: Catalogo = {
   jogos: [
@@ -81,6 +82,95 @@ describe('handleConfigSetupSubmit', () => {
     const result = await handleConfigSetupSubmit(inputValido, {
       getCatalogResult: async () => catalogoOk(),
       gravarConfigEstacao
+    })
+    expect(result).toEqual({ ok: false, code: 'STORE_INDISPONIVEL' })
+  })
+})
+
+function jogo(id: string): Jogo {
+  return { ...CATALOGO.jogos[0], id, titulo: id }
+}
+
+const CATALOGO_KIOSK: Catalogo = {
+  jogos: [jogo('rebite'), jogo('corvo'), jogo('pancada')],
+  sincronizadoEm: '2026-09-25T00:00:00.000Z'
+}
+
+function config(jogosSelecionados: string[]): ConfigEstacao {
+  return {
+    estacaoId: 'tv-1',
+    eventoId: 'evento-1',
+    jogosSelecionados,
+    schemaVersion: CURRENT_SCHEMA_VERSION
+  }
+}
+
+describe('handleAppHydrate', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('com config + Catálogo ok -> catalog só com os selecionados, ordem por id', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite', 'corvo']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+    })
+    expect(result.ok && result.mode).toBe('catalog')
+    expect(result.ok && result.catalogo?.jogos.map((j) => j.id)).toEqual(['corvo', 'rebite'])
+  })
+
+  it('sem config -> setup sem Catálogo e sem esperar o sync', async () => {
+    const getCatalogResult = vi.fn()
+    const result = await handleAppHydrate({ lerConfigEstacao: async () => null, getCatalogResult })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null })
+    expect(getCatalogResult).not.toHaveBeenCalled()
+  })
+
+  it('seleção inteira órfã -> setup sem Catálogo, avisando os ids que caíram', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['fantasma', 'sumido']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+    })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null })
+    expect(warn).toHaveBeenCalledWith(expect.any(String), ['fantasma', 'sumido'])
+  })
+
+  it('parte dos selecionados sumiu -> catalog sem os ausentes, avisando os ids', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['pancada', 'fantasma']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+    })
+    expect(result.ok && result.mode).toBe('catalog')
+    expect(result.ok && result.catalogo?.jogos.map((j) => j.id)).toEqual(['pancada'])
+    expect(warn).toHaveBeenCalledWith(expect.any(String), ['fantasma'])
+  })
+
+  it('Catálogo indisponível -> propaga o code', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['corvo']),
+      getCatalogResult: async () => ({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
+    })
+    expect(result).toEqual({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
+  })
+
+  it('station.json de versão futura -> SCHEMA_INCOMPATIVEL', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => {
+        throw new SchemaIncompativelError(9, 1)
+      },
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+    })
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.code).toBe('SCHEMA_INCOMPATIVEL')
+  })
+
+  it('falha qualquer lendo station.json -> STORE_INDISPONIVEL', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => {
+        throw new Error('EACCES')
+      },
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
     })
     expect(result).toEqual({ ok: false, code: 'STORE_INDISPONIVEL' })
   })
