@@ -69,6 +69,19 @@
   letter-spacing: 0.06em;
 }
 
+/*
+ * "HUB" sob a logo FORJA (lockup FORJA HUB). O espaçamento largo deixa sobra depois
+ * da última letra; o `padding-left` igual recentraliza a palavra sob a logo.
+ */
+@utility text-display-hub {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.9em;
+  padding-left: 0.9em;
+}
+
 @utility text-section-label {
   font-family: var(--font-display);
   font-size: 15px;
@@ -240,6 +253,15 @@
   background: linear-gradient(transparent, color-mix(in srgb, var(--color-surface-base) 84%, transparent));
 }
 
+/* Calor da forja subindo da base da tela (telas sem Arte-herói, ex.: Setup). */
+@utility forge-glow {
+  background: radial-gradient(
+    70% 55% at 50% 108%,
+    color-mix(in srgb, var(--color-action) 22%, transparent),
+    transparent 72%
+  );
+}
+
 /*
  * Faísca que salta do card na troca de foco. Cada partícula define
  * `--spark-dx`/`--spark-dy` (destino) e `--spark-rot` (alinhada à trajetória).
@@ -255,5 +277,47 @@
   100% {
     opacity: 0;
     transform: translate(var(--spark-dx), var(--spark-dy)) rotate(var(--spark-rot)) scaleY(1);
+  }
+}
+
+/* Entrada de bloco: sobe curto e acende. Escalonar com `animation-delay`. */
+@keyframes forja-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes forja-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * Título "forjado": entra desfocado e espaçado e assenta no `letter-spacing` do
+ * próprio elemento (o quadro final omite a propriedade de propósito).
+ */
+@keyframes forja-forge-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    letter-spacing: 0.22em;
+    transform: scale(1.04);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
   }
 }
