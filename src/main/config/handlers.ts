@@ -1,5 +1,7 @@
-import type { Catalogo, CommandResult, ConfigEstacao, Jogo } from '@shared/types'
-import { CURRENT_SCHEMA_VERSION } from '../store/config-estacao'
+import type { Catalogo, CommandResult, ConfigEstacao, Jogo, Mode } from '@shared/types'
+import { catalogoDoKiosk } from '../catalog/kiosk-view'
+import type { Store } from '../ports'
+import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from '../store/config-estacao'
 import { validateSetupSubmit } from '../store/setup-submit'
 
 export type GetCatalogResult = () => Promise<CommandResult<{ catalogo: Catalogo }>>
@@ -41,4 +43,37 @@ export async function handleConfigSetupSubmit(
     return { ok: false, code: 'STORE_INDISPONIVEL' }
   }
   return { ok: true }
+}
+
+export interface HandleAppHydrateDeps {
+  lerConfigEstacao: Store['lerConfigEstacao']
+  getCatalogResult: GetCatalogResult
+}
+
+/**
+ * Sem config ⇒ `setup` sem esperar o Catálogo. Com config, espera o Catálogo do boot (até 10s
+ * com Cache; sem Cache, até o sync terminar) e entrega só os Jogos selecionados; seleção
+ * inteira órfã volta ao `setup`.
+ */
+export async function handleAppHydrate(
+  deps: HandleAppHydrateDeps
+): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>> {
+  let config: ConfigEstacao | null
+  try {
+    config = await deps.lerConfigEstacao()
+  } catch (err) {
+    if (err instanceof SchemaIncompativelError) {
+      return { ok: false, code: 'SCHEMA_INCOMPATIVEL', msg: err.message }
+    }
+    console.error('[main] falha lendo station.json:', err)
+    return { ok: false, code: 'STORE_INDISPONIVEL' }
+  }
+  if (!config) return { ok: true, mode: 'setup', catalogo: null }
+
+  const catalogResult = await deps.getCatalogResult()
+  if (!catalogResult.ok) return catalogResult
+
+  const catalogo = catalogoDoKiosk(catalogResult.catalogo, config.jogosSelecionados)
+  if (!catalogo) return { ok: true, mode: 'setup', catalogo: null }
+  return { ok: true, mode: 'catalog', catalogo }
 }

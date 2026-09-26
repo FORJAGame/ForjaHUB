@@ -30,8 +30,10 @@ export interface BootCatalogDeps {
 /**
  * Corrida entre o `sync()` e um timeout de 10s. Estoura o timeout com Cache disponível: usa o Cache e
  * deixa o sync terminar em background. `onSynced` dispara quando (se) resolver, cobrindo tanto esse
- * caso quanto o happy path (sync dentro do budget). Sem Cache: espera o sync até o fim, sem timeout, é o 1º boot sem
- * rede, quem sente é a tela de Setup via `ERROR_COPY`.
+ * caso quanto o happy path (sync dentro do budget). Sync que falha dentro do budget (ex.: Estação
+ * offline) também cai pro Cache, se houver; sem Cache, devolve a falha original. Sem Cache no
+ * timeout: espera o sync até o fim, sem timeout, é o 1º boot sem rede, quem sente é a tela de Setup
+ * via `ERROR_COPY`.
  */
 export async function bootCatalog(
   baseDir: string,
@@ -48,7 +50,11 @@ export async function bootCatalog(
   })
 
   const raced = await Promise.race([syncPromise, afterMs(timeoutMs, CATALOG_TIMEOUT)])
-  if (raced !== CATALOG_TIMEOUT) return raced
+  if (raced !== CATALOG_TIMEOUT) {
+    if (raced.ok) return raced
+    const cached = await doReadCache(baseDir)
+    return cached ? { ok: true, catalogo: cached } : raced
+  }
 
   const cached = await doReadCache(baseDir)
   if (cached) return { ok: true, catalogo: cached }

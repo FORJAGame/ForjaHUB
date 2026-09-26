@@ -121,6 +121,19 @@
   letter-spacing: 0.04em;
 }
 
+/*
+ * Badge de metadado sobre a Arte-herói. Karrik não tem bold: o peso vem de um
+ * traço fino na cor do texto (mais limpo que o bold sintético do browser).
+ */
+@utility text-badge {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  -webkit-text-stroke: 0.45px currentColor;
+}
+
 @utility text-card-plate {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -159,5 +172,49 @@
   50% {
     opacity: 1;
     transform: scale(1.6);
+  }
+}
+
+/*
+ * Legibilidade local do texto/logo flutuando na Arte-herói (DESIGN floating-meta /
+ * hero-catalogo): sombra curta ou gradiente de canto, nunca scrim de tela cheia.
+ */
+@utility meta-legible {
+  text-shadow:
+    0 1px 2px color-mix(in srgb, var(--color-surface-base) 90%, transparent),
+    0 0 12px color-mix(in srgb, var(--color-surface-base) 60%, transparent);
+}
+
+@utility logo-legible {
+  filter: drop-shadow(0 6px 22px color-mix(in srgb, var(--color-surface-base) 55%, transparent));
+}
+
+@utility hero-vignette {
+  background: radial-gradient(
+    122% 122% at 50% 40%,
+    transparent 44%,
+    color-mix(in srgb, var(--color-surface-base) 58%, transparent) 100%
+  );
+}
+
+@utility hero-base-fade {
+  background: linear-gradient(transparent, color-mix(in srgb, var(--color-surface-base) 84%, transparent));
+}
+
+/*
+ * Faísca que salta do card na troca de foco. Cada partícula define
+ * `--spark-dx`/`--spark-dy` (destino) e `--spark-rot` (alinhada à trajetória).
+ */
+@keyframes forja-spark {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(var(--spark-rot)) scaleY(0.5);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--spark-dx), var(--spark-dy)) rotate(var(--spark-rot)) scaleY(1);
   }
 }

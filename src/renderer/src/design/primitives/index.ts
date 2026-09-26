@@ -1,3 +1,6 @@
 export { default as GrainOverlay } from './GrainOverlay'
 export { default as ErrorPlate } from './ErrorPlate'
 export { default as BootScreen } from './BootScreen'
+export { default as Stage } from './Stage'
+export { default as ForjaMark } from './ForjaMark'
+export { default as FallbackImage } from './FallbackImage'

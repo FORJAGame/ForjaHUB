@@ -6,10 +6,10 @@ import { IPC } from '@shared/channels'
 import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
 import { bootCatalog } from './catalog/boot'
+import { kioskCatalogUpdate } from './catalog/kiosk-view'
 import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
-import { handleConfigRoster, handleConfigSetupSubmit } from './config/handlers'
-import { SchemaIncompativelError } from './store/config-estacao'
+import { handleAppHydrate, handleConfigRoster, handleConfigSetupSubmit } from './config/handlers'
 import { createStore } from './store'
 import type { Store } from './ports'
 
@@ -35,7 +35,9 @@ let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = nul
 
 function getCatalogResult(): Promise<CommandResult<{ catalogo: Catalogo }>> {
   if (catalogoAtual) return Promise.resolve(catalogoAtual)
-  return catalogoInicial ?? Promise.resolve({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
+  if (!catalogoInicial) return Promise.resolve({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
+  // Um `onSynced` que chegou durante a espera é mais novo que o resultado do boot (ex.: Cache).
+  return catalogoInicial.then((result) => catalogoAtual ?? result)
 }
 
 function runOperatorShortcut(action: OperatorShortcut): void {
@@ -68,7 +70,9 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webviewTag: false
+      webviewTag: false,
+      // O clique de SFX do foco toca sem gesto: botão de Controle não conta como gesto do usuário.
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
 
@@ -156,10 +160,15 @@ if (!app.requestSingleInstanceLock()) {
     await cleanupOrphanedCacheDirs(app.getPath('userData'))
 
     catalogoInicial = bootCatalog(app.getPath('userData'), {
-      onSynced: (result) => {
-        catalogoAtual = result
-        if (mainWindow && !mainWindow.webContents.isDestroyed()) {
-          mainWindow.webContents.send(IPC.CATALOG_UPDATED, result.catalogo)
+      onSynced: async (result) => {
+        try {
+          catalogoAtual = result
+          const view = await kioskCatalogUpdate(result.catalogo, () => store.lerConfigEstacao())
+          if (view && mainWindow && !mainWindow.webContents.isDestroyed()) {
+            mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
+          }
+        } catch (err) {
+          console.error('[main] falha enviando catalog:updated:', err)
         }
       }
     })
@@ -171,19 +180,11 @@ if (!app.requestSingleInstanceLock()) {
       optimizer.watchWindowShortcuts(window)
     })
 
-    // #TODO: cache real no lugar de catalog
-    ipcMain.handle(IPC.APP_HYDRATE, async (): Promise<CommandResult<{ mode: Mode }>> => {
-      try {
-        const config = await store.lerConfigEstacao()
-        return { ok: true, mode: config ? 'catalog' : 'setup' }
-      } catch (err) {
-        if (err instanceof SchemaIncompativelError) {
-          return { ok: false, code: 'SCHEMA_INCOMPATIVEL', msg: err.message }
-        }
-        console.error('[main] falha lendo station.json:', err)
-        return { ok: false, code: 'STORE_INDISPONIVEL' }
-      }
-    })
+    ipcMain.handle(
+      IPC.APP_HYDRATE,
+      (): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>> =>
+        handleAppHydrate({ lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult })
+    )
 
     ipcMain.handle(IPC.CONFIG_ROSTER, (): Promise<CommandResult<{ roster: Jogo[] }>> =>
       handleConfigRoster(getCatalogResult)

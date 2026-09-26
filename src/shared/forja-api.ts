@@ -11,7 +11,8 @@ export interface SetupSubmitInput {
  * Ainda expõe só o mínimo do shell Kiosk + Setup da Estação.
  */
 export interface ForjaAPI {
-  hydrate(): Promise<CommandResult<{ mode: Mode }>>
+  /* `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`. */
+  hydrate(): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>>
 
   /* Assina o evento `operator:open` (Ctrl+Shift+O). Retorna a função de cleanup. */
   onOperatorOpen(cb: () => void): () => void
@@ -20,6 +21,6 @@ export interface ForjaAPI {
   configRoster(): Promise<CommandResult<{ roster: Jogo[] }>>
   configSetupSubmit(input: SetupSubmitInput): Promise<CommandResult>
 
-  /* Assina o evento `catalog:updated` (sync concluiu com sucesso). Retorna a função de cleanup. */
+  /* Assina o evento `catalog:updated` (sync em background concluiu), já com a view filtrada do kiosk. Retorna a função de cleanup. */
   onCatalogUpdated(cb: (catalogo: Catalogo) => void): () => void
 }
