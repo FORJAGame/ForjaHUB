@@ -103,7 +103,11 @@ export default function App(): JSX.Element {
   }
 
   return (
-    <div className="h-full" style={{ cursor: cursorVisible ? 'default' : 'none' }}>
+    // Monta ao sair do boot/Setup: o catálogo acende a partir do `surface-base` em vez de cortar seco.
+    <div
+      className="h-full animate-[forja-fade-in_700ms_ease-out]"
+      style={{ cursor: cursorVisible ? 'default' : 'none' }}
+    >
       {screen}
 
       {shouldWarnDisconnected(everConnected, state.controllerConnected) && (
