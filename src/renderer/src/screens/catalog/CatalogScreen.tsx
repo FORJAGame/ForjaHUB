@@ -1,6 +1,7 @@
 import { type JSX, type ReactNode, useState } from 'react'
 import type { Catalogo } from '@shared/types'
 import { mediaUrl } from '@shared/media'
+import { FORJA_MARK_URL } from '../../design/assets'
 import { FallbackImage, ForjaMark, GrainOverlay, Stage } from '../../design/primitives'
 import { moveFocus } from '../../input/focus'
 import { useInputIntents } from '../../input/hooks/use-input-intents'
@@ -80,7 +81,7 @@ export default function CatalogScreen({
             className="h-full w-full object-cover"
             fallback={
               <div className="flex h-full w-full items-center justify-center bg-surface-base">
-                <img src="/forja-mark.svg" alt="" className="w-225 opacity-[0.06]" />
+                <img src={FORJA_MARK_URL} alt="" className="w-225 opacity-[0.06]" />
               </div>
             }
           />
