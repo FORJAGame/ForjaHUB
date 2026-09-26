@@ -26,6 +26,13 @@ export interface KioskState {
   errorPlate: string | null
   /** Controle conectado coexiste com qualquer `mode`; desconectar não congela a navegação. */
   controllerConnected: boolean
+  /**
+   * Snapshot read-only da view do kiosk (Catálogo já filtrado pelo `main`, AD-11).
+   * O renderer nunca persiste nem deriva estado autoritativo dele (AD-5).
+   */
+  catalogo: Catalogo | null
+  /** Id do Jogo em foco na fileira; `null` só quando não há Catálogo. */
+  focusedGameId: string | null
 }
 
 /**

@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { mediaUrl } from '@shared/media'
 import { parseForjaMediaUrl, resolveMediaAsset } from '../media-protocol'
 
 const dirs: string[] = []
@@ -121,4 +122,20 @@ describe('parseForjaMediaUrl', () => {
     // `parseForjaMediaUrl` valida a FORMA (hostname/path), não o scheme em si.
     expect(parseForjaMediaUrl('https://media/jogo-a/capa')).toEqual({ id: 'jogo-a', tipo: 'capa' })
   })
+})
+
+describe('mediaUrl (renderer) ↔ parseForjaMediaUrl/resolveMediaAsset (main)', () => {
+  it.each(['capa', 'hero', 'logo'] as const)(
+    'ida e volta de %s: a query de versão não vaza pro id/tipo e o tipo passa no enum',
+    async (tipo) => {
+      const url = mediaUrl('mortis-pactum', tipo, '2026-09-25T12:34:56.789Z')
+      const parsed = parseForjaMediaUrl(url)
+      expect(parsed).toEqual({ id: 'mortis-pactum', tipo })
+
+      const base = tmpDir()
+      montarMedia(base, 'mortis-pactum', [`${tipo}.jpg`])
+      const resolved = await resolveMediaAsset(base, parsed?.id ?? '', parsed?.tipo ?? '')
+      expect(resolved?.path).toBe(join(base, 'mortis-pactum', `${tipo}.jpg`))
+    }
+  )
 })

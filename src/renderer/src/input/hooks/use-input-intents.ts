@@ -14,8 +14,7 @@ interface UseInputIntentsArgs {
  * teclado num único fluxo de `Intent`. `navigator.getGamepads()` é indexado
  * pelo `index` do próprio Controle, então o primeiro slot não-nulo já é "o de
  * menor index". Cada componente que chama o hook lê independentemente a mesma
- * API do browser. `App.tsx` usa só `onConnectedChange`, `FocusHarness` usa só
- * `onIntent`.
+ * API do browser.
  *
  * Quirk do Chromium: um Controle já plugado ao ligar a Estação só aparece em
  * `getGamepads()` depois do primeiro botão pressionado, `controllerConnected`

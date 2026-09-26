@@ -1,11 +1,11 @@
 import { type FormEvent, type JSX, useEffect, useRef, useState } from 'react'
 import { normalizeId } from '@shared/normalize'
-import type { Jogo, Mode } from '@shared/types'
+import type { Jogo } from '@shared/types'
 import { BootScreen, ErrorPlate } from '../../design/primitives'
 
 interface SetupScreenProps {
-  onComplete: (mode: Mode) => void
-  onError: (code: string) => void
+  /** Resolve só depois do hydrate: o form fica travado até lá. */
+  onComplete: () => Promise<void>
 }
 
 const ERROR_COPY: Record<string, string> = {
@@ -22,7 +22,7 @@ const ERROR_COPY: Record<string, string> = {
   MIDIA_INDISPONIVEL: 'Não foi possível baixar a mídia do Catálogo agora. Verifique a rede e tente de novo.'
 }
 
-export default function SetupScreen({ onComplete, onError }: SetupScreenProps): JSX.Element {
+export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Element {
   const [roster, setRoster] = useState<Jogo[] | null>(null)
   const [estacaoId, setEstacaoId] = useState('')
   const [eventoId, setEventoId] = useState('')
@@ -73,9 +73,7 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
         setErrorCode(res.code)
         return
       }
-      const hydrated = await window.forjaAPI.hydrate()
-      if (hydrated.ok) onComplete(hydrated.mode)
-      else onError(hydrated.code)
+      await onComplete()
     } catch {
       setErrorCode('SETUP_FALHOU')
     } finally {
@@ -128,12 +126,12 @@ export default function SetupScreen({ onComplete, onError }: SetupScreenProps): 
           ))}
         </fieldset>
 
-        {errorCode && <p className="m-0 text-sm text-[#e0483f]">{ERROR_COPY[errorCode] ?? errorCode}</p>}
+        {errorCode && <p className="m-0 text-sm text-action-border">{ERROR_COPY[errorCode] ?? errorCode}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="rounded bg-[#d21312] px-4 py-2 font-semibold disabled:opacity-50"
+          className="rounded bg-action px-4 py-2 font-semibold disabled:opacity-50"
         >
           Sincronizar e continuar
         </button>

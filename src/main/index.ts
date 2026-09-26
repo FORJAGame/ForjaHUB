@@ -70,7 +70,9 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webviewTag: false
+      webviewTag: false,
+      // O clique de SFX do foco toca sem gesto: botão de Controle não conta como gesto do usuário.
+      autoplayPolicy: 'no-user-gesture-required'
     }
   })
 
