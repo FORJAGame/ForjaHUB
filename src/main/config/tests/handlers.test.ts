@@ -26,9 +26,9 @@ function catalogoOk(): { ok: true; catalogo: Catalogo } {
 }
 
 describe('handleConfigRoster', () => {
-  it('catálogo ok -> devolve o roster', async () => {
+  it('catálogo ok -> devolve o roster com a versão da mídia', async () => {
     const result = await handleConfigRoster(async () => catalogoOk())
-    expect(result).toEqual({ ok: true, roster: CATALOGO.jogos })
+    expect(result).toEqual({ ok: true, roster: CATALOGO.jogos, sincronizadoEm: CATALOGO.sincronizadoEm })
   })
 
   it('catálogo falho -> propaga o mesmo code (sem virar SETUP_* nem sumir)', async () => {

@@ -1,6 +1,10 @@
+/*
+ * `url()` pelo alias `@`: o dev resolve relativo a este arquivo e o build relativo ao
+ * `index.css` que o importa; caminho relativo quebra um dos dois (fonte cai no fallback).
+ */
 @font-face {
   font-family: 'Combat';
-  src: url('./design/fonts/combat/Combat.otf') format('opentype');
+  src: url('@/design/fonts/combat/Combat.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,7 +12,7 @@
 
 @font-face {
   font-family: 'Karrik';
-  src: url('./design/fonts/karrik/Karrik-Regular.woff2') format('woff2');
+  src: url('@/design/fonts/karrik/Karrik-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -16,7 +20,7 @@
 
 @font-face {
   font-family: 'Karrik';
-  src: url('./design/fonts/karrik/Karrik-Italic.woff2') format('woff2');
+  src: url('@/design/fonts/karrik/Karrik-Italic.woff2') format('woff2');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
@@ -63,6 +67,19 @@
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.06em;
+}
+
+/*
+ * "HUB" sob a logo FORJA (lockup FORJA HUB). O espaçamento largo deixa sobra depois
+ * da última letra; o `padding-left` igual recentraliza a palavra sob a logo.
+ */
+@utility text-display-hub {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.9em;
+  padding-left: 0.9em;
 }
 
 @utility text-section-label {
@@ -163,6 +180,41 @@
   box-shadow: 0 0 6px 0 rgba(210, 19, 18, 0.45);
 }
 
+/*
+ * Campo de texto do Operador. Canto `radius-sm`; no foco a borda vira `action` e
+ * ganha o mesmo brilho do `focus-ring`, sem mudar a caixa (borda 1px + anel 1px).
+ */
+@utility field {
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+  color: var(--color-ink-primary);
+  caret-color: var(--color-action);
+  outline: none;
+  transition:
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 180ms ease-out;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--color-ink-secondary) 50%, transparent);
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-ink-secondary) 40%, var(--color-border-hairline));
+  }
+
+  &:focus {
+    border-color: var(--color-action);
+    background: var(--color-surface-raised);
+    box-shadow:
+      0 0 0 1px var(--color-action),
+      0 0 10px 0 rgba(210, 19, 18, 0.35);
+  }
+}
+
 @keyframes forja-ember-pulse {
   0%,
   100% {
@@ -201,6 +253,15 @@
   background: linear-gradient(transparent, color-mix(in srgb, var(--color-surface-base) 84%, transparent));
 }
 
+/* Calor da forja subindo da base da tela (telas sem Arte-herói, ex.: Setup). */
+@utility forge-glow {
+  background: radial-gradient(
+    70% 55% at 50% 108%,
+    color-mix(in srgb, var(--color-action) 22%, transparent),
+    transparent 72%
+  );
+}
+
 /*
  * Faísca que salta do card na troca de foco. Cada partícula define
  * `--spark-dx`/`--spark-dy` (destino) e `--spark-rot` (alinhada à trajetória).
@@ -216,5 +277,47 @@
   100% {
     opacity: 0;
     transform: translate(var(--spark-dx), var(--spark-dy)) rotate(var(--spark-rot)) scaleY(1);
+  }
+}
+
+/* Entrada de bloco: sobe curto e acende. Escalonar com `animation-delay`. */
+@keyframes forja-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes forja-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * Título "forjado": entra desfocado e espaçado e assenta no `letter-spacing` do
+ * próprio elemento (o quadro final omite a propriedade de propósito).
+ */
+@keyframes forja-forge-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    letter-spacing: 0.22em;
+    transform: scale(1.04);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
   }
 }

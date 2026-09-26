@@ -1,9 +1,8 @@
 import { type JSX } from 'react'
 import type { Jogo } from '@shared/types'
 import { mediaUrl } from '@shared/media'
-import { FallbackImage } from '../../design/primitives'
+import { FallbackImage, Sparks } from '../../design/primitives'
 import { CARD_WIDTH_PX, FOCUSED_SCALE } from './row-layout'
-import Sparks from './Sparks'
 
 interface GameCardProps {
   jogo: Jogo

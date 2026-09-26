@@ -17,8 +17,8 @@ export interface ForjaAPI {
   /* Assina o evento `operator:open` (Ctrl+Shift+O). Retorna a função de cleanup. */
   onOperatorOpen(cb: () => void): () => void
 
-  /* Roster completo pro `setup-form` escolher os Jogos do Evento. */
-  configRoster(): Promise<CommandResult<{ roster: Jogo[] }>>
+  /* Roster completo pro `setup-form` escolher os Jogos do Evento; `sincronizadoEm` versiona a `mediaUrl` das Capas. */
+  configRoster(): Promise<CommandResult<{ roster: Jogo[]; sincronizadoEm: string }>>
   configSetupSubmit(input: SetupSubmitInput): Promise<CommandResult>
 
   /* Assina o evento `catalog:updated` (sync em background concluiu), já com a view filtrada do kiosk. Retorna a função de cleanup. */

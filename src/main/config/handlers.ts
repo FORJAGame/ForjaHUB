@@ -8,10 +8,10 @@ export type GetCatalogResult = () => Promise<CommandResult<{ catalogo: Catalogo 
 
 export async function handleConfigRoster(
   getCatalogResult: GetCatalogResult
-): Promise<CommandResult<{ roster: Jogo[] }>> {
+): Promise<CommandResult<{ roster: Jogo[]; sincronizadoEm: string }>> {
   const result = await getCatalogResult()
   if (!result.ok) return result
-  return { ok: true, roster: result.catalogo.jogos }
+  return { ok: true, roster: result.catalogo.jogos, sincronizadoEm: result.catalogo.sincronizadoEm }
 }
 
 export interface HandleConfigSetupSubmitDeps {

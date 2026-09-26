@@ -186,7 +186,7 @@ if (!app.requestSingleInstanceLock()) {
         handleAppHydrate({ lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult })
     )
 
-    ipcMain.handle(IPC.CONFIG_ROSTER, (): Promise<CommandResult<{ roster: Jogo[] }>> =>
+    ipcMain.handle(IPC.CONFIG_ROSTER, (): Promise<CommandResult<{ roster: Jogo[]; sincronizadoEm: string }>> =>
       handleConfigRoster(getCatalogResult)
     )
 
