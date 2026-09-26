@@ -1,7 +1,7 @@
 import { type CSSProperties, type JSX } from 'react'
 
 interface SparksProps {
-  /** Muda a cada troca de foco; quem renderiza usa como `key` para replayar a animação. */
+  /** Muda a cada disparo (troca de foco, seleção); quem renderiza usa como `key` para replayar a animação. */
   seed: number
 }
 
