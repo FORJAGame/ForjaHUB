@@ -1,6 +1,10 @@
+/*
+ * `url()` pelo alias `@`: o dev resolve relativo a este arquivo e o build relativo ao
+ * `index.css` que o importa; caminho relativo quebra um dos dois (fonte cai no fallback).
+ */
 @font-face {
   font-family: 'Combat';
-  src: url('./design/fonts/combat/Combat.otf') format('opentype');
+  src: url('@/design/fonts/combat/Combat.otf') format('opentype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,7 +12,7 @@
 
 @font-face {
   font-family: 'Karrik';
-  src: url('./design/fonts/karrik/Karrik-Regular.woff2') format('woff2');
+  src: url('@/design/fonts/karrik/Karrik-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -16,7 +20,7 @@
 
 @font-face {
   font-family: 'Karrik';
-  src: url('./design/fonts/karrik/Karrik-Italic.woff2') format('woff2');
+  src: url('@/design/fonts/karrik/Karrik-Italic.woff2') format('woff2');
   font-weight: 400;
   font-style: italic;
   font-display: swap;
