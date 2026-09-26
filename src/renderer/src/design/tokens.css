@@ -167,6 +167,41 @@
   box-shadow: 0 0 6px 0 rgba(210, 19, 18, 0.45);
 }
 
+/*
+ * Campo de texto do Operador. Canto `radius-sm`; no foco a borda vira `action` e
+ * ganha o mesmo brilho do `focus-ring`, sem mudar a caixa (borda 1px + anel 1px).
+ */
+@utility field {
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+  color: var(--color-ink-primary);
+  caret-color: var(--color-action);
+  outline: none;
+  transition:
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 180ms ease-out;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--color-ink-secondary) 50%, transparent);
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--color-ink-secondary) 40%, var(--color-border-hairline));
+  }
+
+  &:focus {
+    border-color: var(--color-action);
+    background: var(--color-surface-raised);
+    box-shadow:
+      0 0 0 1px var(--color-action),
+      0 0 10px 0 rgba(210, 19, 18, 0.35);
+  }
+}
+
 @keyframes forja-ember-pulse {
   0%,
   100% {
