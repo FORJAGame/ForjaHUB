@@ -11,8 +11,11 @@ export interface SetupSubmitInput {
  * Ainda expõe só o mínimo do shell Kiosk + Setup da Estação.
  */
 export interface ForjaAPI {
-  /* `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`. */
-  hydrate(): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>>
+  /*
+   * `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`.
+   * `focusedGameId` é o último Jogo lançado, se ainda estiver na view: a volta de uma partida cai no card jogado.
+   */
+  hydrate(): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }>>
 
   /* Assina o evento `operator:open` (Ctrl+Shift+O). Retorna a função de cleanup. */
   onOperatorOpen(cb: () => void): () => void
@@ -23,4 +26,10 @@ export interface ForjaAPI {
 
   /* Assina o evento `catalog:updated` (sync em background concluiu), já com a view filtrada do kiosk. Retorna a função de cleanup. */
   onCatalogUpdated(cb: (catalogo: Catalogo) => void): () => void
+
+  /*
+   * Pede ao `main` para abrir o Jogo. `ok:true` = o processo iniciou: o `main` recolhe a janela em
+   * seguida e a recria quando o Jogo fechar. `ok:false` traz um `LaunchErrorCode`.
+   */
+  gameLaunch(jogoId: string): Promise<CommandResult>
 }

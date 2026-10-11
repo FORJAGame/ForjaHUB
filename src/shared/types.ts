@@ -20,6 +20,19 @@ export const MODES = [
 
 export type Mode = (typeof MODES)[number]
 
+/** Códigos de falha do JOGAR; o renderer mostra a mesma copy para todos. */
+export const LAUNCH_ERROR_CODES = [
+  'JOGO_DESCONHECIDO',
+  'JOGO_NAO_INSTALADO',
+  'EXE_NAO_ENCONTRADO',
+  'EXE_AMBIGUO',
+  'JOGO_EM_EXECUCAO',
+  'FALHA_AO_ABRIR',
+  'LAUNCH_FALHOU'
+] as const
+
+export type LaunchErrorCode = (typeof LAUNCH_ERROR_CODES)[number]
+
 export interface KioskState {
   mode: Mode
   /** Placa de erro coexiste com qualquer `mode` — não é um estado do union. */

@@ -1,4 +1,5 @@
-export type MediaTipo = 'capa' | 'hero' | 'logo'
+/** `qr` não vem do Drive: o `main` gera o PNG a partir do `redesUrl` do Jogo. */
+export type MediaTipo = 'capa' | 'hero' | 'logo' | 'qr' | `detalhe-${number}`
 
 /**
  * `versao` (o `sincronizadoEm` do Catálogo) vai na query só para furar o cache de
