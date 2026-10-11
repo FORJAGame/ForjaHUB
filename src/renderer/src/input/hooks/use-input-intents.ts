@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { isEditableTarget } from '../dom-guard'
-import { NEUTRAL_DIGITAL, readGamepadIntents, selectActiveGamepad, type DigitalState } from '../gamepad'
+import { createGamepadReader, selectActiveGamepad } from '../gamepad'
 import { mapKeyToIntent } from '../keyboard'
 import type { Intent } from '../types'
 
@@ -30,7 +30,7 @@ export function useInputIntents({ onIntent, onConnectedChange }: UseInputIntents
 
   useEffect(() => {
     let frame = 0
-    let digital: DigitalState = NEUTRAL_DIGITAL
+    const lerControle = createGamepadReader()
     let connected = false
 
     const tick = (): void => {
@@ -42,13 +42,7 @@ export function useInputIntents({ onIntent, onConnectedChange }: UseInputIntents
         onConnectedChangeRef.current?.(connected)
       }
 
-      if (active) {
-        const next = readGamepadIntents(active, digital)
-        digital = next.digital
-        for (const intent of next.intents) onIntentRef.current?.(intent)
-      } else {
-        digital = NEUTRAL_DIGITAL
-      }
+      for (const intent of lerControle(active)) onIntentRef.current?.(intent)
 
       frame = requestAnimationFrame(tick)
     }
