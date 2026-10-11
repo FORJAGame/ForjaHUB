@@ -72,8 +72,8 @@ export interface Jogo {
   sinopse: string
   redesUrl: string
   /**
-   * Caminho do `.exe` dentro do build (`games/<id>/<exeRelativo>`), validado
-   * (sem `..`, sem path absoluto) mas ainda não usado pra lançar nada.
+   * Caminho do executável dentro do build (`games/<id>/<exeRelativo>`), validado
+   * (sem `..`, sem path absoluto). Vazio: o `main` descobre o único executável da pasta.
    */
   exeRelativo: string
   detalheImagens: string[]

@@ -13,8 +13,8 @@ const MODALIDADES = ['single-player', 'multiplayer'] as const
 /**
  * Sem `..` e sem caminho absoluto, nem POSIX (`/...`),
  * nem Windows (`C:\...`, `C:/...`, `\...`). Vazio é aceito: o Jogo chega como
- * `.zip` pela Planilha, o caminho do `.exe` só se sabe depois de extrair
- * (Story 12/Pista B) — até lá, `exeRelativo` fica vazio.
+ * `.zip` pela Planilha e o caminho do `.exe` só se sabe depois de extrair; vazio,
+ * o `main` descobre o executável sozinho dentro de `games/<id>/`.
  */
 function isSafeRelativePath(bruto: string): boolean {
   if (bruto === '') return true
