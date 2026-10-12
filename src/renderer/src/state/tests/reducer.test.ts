@@ -57,6 +57,23 @@ describe('reducer — set-mode', () => {
     const next = reducer(base, { type: 'set-mode', mode: 'bogus' as Mode })
     expect(next).toBe(base)
   })
+
+  it('durante o lançamento é no-op (o overlay não é trocável)', () => {
+    const state = { ...base, mode: 'launching' as Mode, catalogo: catalogo('a'), focusedGameId: 'a' }
+    expect(reducer(state, { type: 'set-mode', mode: 'operator' })).toBe(state)
+  })
+
+  it('sair da Detalhe limpa a placa de erro', () => {
+    const state = { ...base, mode: 'detail' as Mode, errorPlate: 'JOGO_NAO_INSTALADO' }
+    const next = reducer(state, { type: 'set-mode', mode: 'catalog' })
+    expect(next.mode).toBe('catalog')
+    expect(next.errorPlate).toBeNull()
+  })
+
+  it('sair de outro mode preserva a placa', () => {
+    const next = reducer(base, { type: 'set-mode', mode: 'operator' })
+    expect(next.errorPlate).toBe('ALGO')
+  })
 })
 
 describe('reducer — error-plate / controller não mexem no mode', () => {
@@ -90,26 +107,61 @@ describe('reducer — error-plate / controller não mexem no mode', () => {
 
 describe('reducer — hydrated', () => {
   it('entra no mode com o Catálogo e foca o 1º Jogo', () => {
-    const next = reducer(initialState, { type: 'hydrated', mode: 'catalog', catalogo: catalogo('a', 'b') })
+    const next = reducer(initialState, {
+      type: 'hydrated',
+      mode: 'catalog',
+      catalogo: catalogo('a', 'b'),
+      focusedGameId: null
+    })
     expect(next.mode).toBe('catalog')
     expect(next.catalogo?.jogos.map((j) => j.id)).toEqual(['a', 'b'])
     expect(next.focusedGameId).toBe('a')
   })
 
+  it('o focusedGameId do hydrate vence e foca o Jogo jogado', () => {
+    const next = reducer(initialState, {
+      type: 'hydrated',
+      mode: 'catalog',
+      catalogo: catalogo('a', 'b'),
+      focusedGameId: 'b'
+    })
+    expect(next.focusedGameId).toBe('b')
+  })
+
+  it('focusedGameId fora do Catálogo cai no 1º Jogo', () => {
+    const next = reducer(initialState, {
+      type: 'hydrated',
+      mode: 'catalog',
+      catalogo: catalogo('a', 'b'),
+      focusedGameId: 'fantasma'
+    })
+    expect(next.focusedGameId).toBe('a')
+  })
+
   it('re-hydrate mantém o foco se o Jogo ainda existe', () => {
     const state = { ...base, catalogo: catalogo('a', 'b'), focusedGameId: 'b' }
-    const next = reducer(state, { type: 'hydrated', mode: 'catalog', catalogo: catalogo('a', 'b', 'c') })
+    const next = reducer(state, {
+      type: 'hydrated',
+      mode: 'catalog',
+      catalogo: catalogo('a', 'b', 'c'),
+      focusedGameId: null
+    })
     expect(next.focusedGameId).toBe('b')
   })
 
   it('setup sem Catálogo zera o foco', () => {
     const state = { ...base, catalogo: catalogo('a'), focusedGameId: 'a' }
-    const next = reducer(state, { type: 'hydrated', mode: 'setup', catalogo: null })
+    const next = reducer(state, { type: 'hydrated', mode: 'setup', catalogo: null, focusedGameId: null })
     expect(next).toEqual({ ...base, mode: 'setup', catalogo: null, focusedGameId: null })
   })
 
   it('mode fora do union deixa o estado inalterado (mesma referência)', () => {
-    const next = reducer(base, { type: 'hydrated', mode: 'bogus' as Mode, catalogo: catalogo('a') })
+    const next = reducer(base, {
+      type: 'hydrated',
+      mode: 'bogus' as Mode,
+      catalogo: catalogo('a'),
+      focusedGameId: null
+    })
     expect(next).toBe(base)
   })
 })
@@ -160,6 +212,62 @@ describe('reducer — focus-game', () => {
 
   it('foco igual ao atual é no-op (mesma referência)', () => {
     expect(reducer(state, { type: 'focus-game', id: 'a' })).toBe(state)
+  })
+})
+
+describe('reducer — launch-start', () => {
+  const naDetalhe = { ...base, mode: 'detail' as Mode, catalogo: catalogo('a', 'b'), focusedGameId: 'b' }
+
+  it('na Detalhe com Jogo em foco entra em launching e limpa a placa', () => {
+    const next = reducer(naDetalhe, { type: 'launch-start' })
+    expect(next.mode).toBe('launching')
+    expect(next.errorPlate).toBeNull()
+    expect(next.focusedGameId).toBe('b')
+  })
+
+  it('fora da Detalhe é no-op (mesma referência)', () => {
+    expect(reducer(base, { type: 'launch-start' })).toBe(base)
+  })
+
+  it('na Detalhe sem foco é no-op (mesma referência)', () => {
+    const state = { ...naDetalhe, focusedGameId: null }
+    expect(reducer(state, { type: 'launch-start' })).toBe(state)
+  })
+})
+
+describe('reducer — launch-failed', () => {
+  const lancando = { ...base, mode: 'launching' as Mode, catalogo: catalogo('a'), focusedGameId: 'a' }
+
+  it('volta à Detalhe com a placa do código', () => {
+    const next = reducer(lancando, { type: 'launch-failed', code: 'JOGO_NAO_INSTALADO' })
+    expect(next.mode).toBe('detail')
+    expect(next.errorPlate).toBe('JOGO_NAO_INSTALADO')
+    expect(next.focusedGameId).toBe('a')
+  })
+
+  it('fora do lançamento é no-op (mesma referência)', () => {
+    expect(reducer(base, { type: 'launch-failed', code: 'FALHA_AO_ABRIR' })).toBe(base)
+  })
+})
+
+describe('reducer — ciclo da Detalhe', () => {
+  it('detail → launch-start → launch-failed → set-mode catalog limpa a placa', () => {
+    const inicio = { ...base, mode: 'detail' as Mode, catalogo: catalogo('a'), focusedGameId: 'a' }
+    const lancando = reducer(inicio, { type: 'launch-start' })
+    const falhou = reducer(lancando, { type: 'launch-failed', code: 'FALHA_AO_ABRIR' })
+    expect(falhou.errorPlate).toBe('FALHA_AO_ABRIR')
+
+    const noCatalogo = reducer(falhou, { type: 'set-mode', mode: 'catalog' })
+    expect(noCatalogo.mode).toBe('catalog')
+    expect(noCatalogo.errorPlate).toBeNull()
+    expect(noCatalogo.focusedGameId).toBe('a')
+  })
+
+  it('catalog-updated durante o lançamento mantém o mode', () => {
+    const lancando = { ...base, mode: 'launching' as Mode, catalogo: catalogo('a'), focusedGameId: 'a' }
+    const next = reducer(lancando, { type: 'catalog-updated', catalogo: catalogo('b') })
+    expect(next.mode).toBe('launching')
+    expect(next.focusedGameId).toBe('b')
   })
 })
 

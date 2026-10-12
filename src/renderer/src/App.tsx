@@ -1,20 +1,24 @@
-import { type Dispatch, type JSX, useEffect, useReducer, useState } from 'react'
+import { type Dispatch, type JSX, useEffect, useReducer, useRef, useState } from 'react'
 import type { ForjaAPI } from '@shared/forja-api'
 import { BootScreen, ErrorPlate } from './design/primitives'
 import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
 import { useInputIntents } from './input/hooks/use-input-intents'
 import CatalogScreen from './screens/catalog/CatalogScreen'
-import DetailPlaceholder from './screens/detail/DetailPlaceholder'
+import DetailScreen from './screens/detail/DetailScreen'
 import SetupScreen from './screens/setup/SetupScreen'
+import { errorCopy, isLaunchError } from './state/error-copy'
 import { type Action, initialState, reducer } from './state/reducer'
+
+/** A placa de falha do JOGAR some sozinha depois disso. */
+const PLACA_MS = 5000
 
 function runHydrate(api: ForjaAPI, dispatch: Dispatch<Action>, alive: () => boolean = () => true): Promise<void> {
   return api
     .hydrate()
     .then((res) => {
       if (!alive()) return
-      if (res.ok) dispatch({ type: 'hydrated', mode: res.mode, catalogo: res.catalogo })
+      if (res.ok) dispatch({ type: 'hydrated', mode: res.mode, catalogo: res.catalogo, focusedGameId: res.focusedGameId })
       else dispatch({ type: 'error-plate', code: res.code })
     })
     .catch(() => {
@@ -26,6 +30,7 @@ export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [everConnected, setEverConnected] = useState(false)
   const cursorVisible = useCursorIdle()
+  const jogandoRef = useRef(false)
 
   useInputIntents({
     onConnectedChange: (connected) => {
@@ -56,7 +61,14 @@ export default function App(): JSX.Element {
     }
   }, [])
 
-  const errorPlate = state.errorPlate && <ErrorPlate message={state.errorPlate} />
+  // A placa de falha do JOGAR some sozinha: a Detalhe volta a ficar limpa.
+  useEffect(() => {
+    if (!isLaunchError(state.errorPlate)) return
+    const timer = setTimeout(() => dispatch({ type: 'error-plate', code: null }), PLACA_MS)
+    return () => clearTimeout(timer)
+  }, [state.errorPlate])
+
+  const errorPlate = state.errorPlate && <ErrorPlate message={errorCopy(state.errorPlate)} />
 
   if (state.mode === 'boot') {
     return (
@@ -78,6 +90,22 @@ export default function App(): JSX.Element {
 
   const focusedJogo = state.catalogo?.jogos.find((jogo) => jogo.id === state.focusedGameId)
 
+  function jogar(): void {
+    if (jogandoRef.current || !focusedJogo) return
+    jogandoRef.current = true
+    dispatch({ type: 'launch-start' })
+    window.forjaAPI
+      .gameLaunch(focusedJogo.id)
+      .then((res) => {
+        // `ok` = o Jogo abriu: o main recolhe a janela e a recria na volta, re-hidratando.
+        if (!res.ok) dispatch({ type: 'launch-failed', code: res.code })
+      })
+      .catch(() => dispatch({ type: 'launch-failed', code: 'LAUNCH_FALHOU' }))
+      .finally(() => {
+        jogandoRef.current = false
+      })
+  }
+
   let screen: JSX.Element
   if (state.mode === 'catalog' && state.catalogo && focusedJogo) {
     screen = (
@@ -88,12 +116,18 @@ export default function App(): JSX.Element {
         onConfirm={() => dispatch({ type: 'set-mode', mode: 'detail' })}
       />
     )
-  } else if (state.mode === 'detail' && focusedJogo) {
+  } else if ((state.mode === 'detail' || state.mode === 'launching') && focusedJogo && state.catalogo) {
     screen = (
-      <DetailPlaceholder jogo={focusedJogo} onBack={() => dispatch({ type: 'set-mode', mode: 'catalog' })} />
+      <DetailScreen
+        jogo={focusedJogo}
+        versao={state.catalogo.sincronizadoEm}
+        ocupado={state.mode === 'launching'}
+        onBack={() => dispatch({ type: 'set-mode', mode: 'catalog' })}
+        onPlay={jogar}
+      />
     )
   } else {
-    // Modos ainda sem tela (Atração, launch, Operador).
+    // Modos ainda sem tela (Atração e Operador).
     screen = (
       <main className="flex h-full select-none flex-col items-center justify-center gap-2 text-ink-primary">
         <p className="text-label-caps m-0 text-ink-secondary">FORJA HUB</p>
