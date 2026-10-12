@@ -9,7 +9,17 @@ import { bootCatalog } from './catalog/boot'
 import { kioskCatalogUpdate } from './catalog/kiosk-view'
 import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
-import { handleAppHydrate, handleConfigRoster, handleConfigSetupSubmit } from './config/handlers'
+import { qrResponse } from './catalog/qr'
+import {
+  findLaunchableJogo,
+  handleAppHydrate,
+  handleConfigRoster,
+  handleConfigSetupSubmit
+} from './config/handlers'
+import { createGameLauncher } from './launcher'
+import { createGameSession, type GameSession } from './launcher/game-session'
+import { createRecuo } from './launcher/recuo'
+import { resolveGameExe } from './launcher/resolve-exe'
 import { createStore } from './store'
 import type { Store } from './ports'
 
@@ -29,6 +39,8 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 let store: Store
+/** Fica no módulo porque o `window-all-closed` é registrado fora do `whenReady`. */
+let session: GameSession | null = null
 
 let catalogoAtual: CommandResult<{ catalogo: Catalogo }> | null = null
 let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
@@ -38,6 +50,14 @@ function getCatalogResult(): Promise<CommandResult<{ catalogo: Catalogo }>> {
   if (!catalogoInicial) return Promise.resolve({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
   // Um `onSynced` que chegou durante a espera é mais novo que o resultado do boot (ex.: Cache).
   return catalogoInicial.then((result) => catalogoAtual ?? result)
+}
+
+function restaurarJanela(): void {
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.reload()
+    return
+  }
+  createWindow()
 }
 
 function runOperatorShortcut(action: OperatorShortcut): void {
@@ -58,7 +78,7 @@ function runOperatorShortcut(action: OperatorShortcut): void {
 }
 
 function createWindow(): void {
-  mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     // Tela em modo KIOSK
     fullscreen: true,
     frame: false,
@@ -76,23 +96,26 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+  mainWindow = win
+
+  win.on('ready-to-show', () => {
+    win.show()
     // Foco explícito: sob Wayland um kiosk frameless nem sempre foca ao exibir, e
     // sem foco a janela não recebe `before-input-event` (único caminho de atalho
     // que funciona no meu PC (Hyprland/Linux)).
-    mainWindow?.focus()
+    win.focus()
   })
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  win.on('closed', () => {
+    // A janela recriada na volta de um Jogo não pode ser zerada pelo `closed` tardio da anterior.
+    if (mainWindow === win) mainWindow = null
   })
 
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  mainWindow.webContents.on('will-redirect', (event) => event.preventDefault())
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event) => event.preventDefault())
+  win.webContents.on('will-redirect', (event) => event.preventDefault())
 
   // Fallback dos atalhos do Operador quando a janela do Hub está em foco.
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  win.webContents.on('before-input-event', (event, input) => {
     const action = matchOperatorShortcut(input)
     if (!action) return
     event.preventDefault()
@@ -100,15 +123,16 @@ function createWindow(): void {
   })
 
   // Recuperação mínima para operação não-assistida: renderer morto ⇒ recarrega.
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (details.reason === 'clean-exit') return
-    mainWindow?.webContents.reload()
+  // A janela destruída pelo recuo não volta por aqui: quem a recria é o fim da Sessão.
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || win.isDestroyed()) return
+    win.webContents.reload()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -140,11 +164,14 @@ if (!app.requestSingleInstanceLock()) {
     store = createStore()
 
     // `forja://media/<id>/<tipo>` -> `userData/catalog/current/media/<id>/…`
-    // `id`/`tipo` validam contra o enum fechado em `resolveMediaAsset`
+    // `id`/`tipo` validam contra o enum fechado em `resolveMediaAsset`;
+    // `tipo === 'qr'` não é arquivo: sai do gerador de PNG.
     protocol.handle('forja', async (request) => {
       try {
         const parsed = parseForjaMediaUrl(request.url)
         if (!parsed) return new Response(null, { status: 404 })
+
+        if (parsed.tipo === 'qr') return await qrResponse(catalogoAtual?.ok ? catalogoAtual.catalogo : null, parsed.id)
 
         const resolved = await resolveMediaAsset(mediaDir(app.getPath('userData')), parsed.id, parsed.tipo)
         if (!resolved) return new Response(null, { status: 404 })
@@ -156,6 +183,24 @@ if (!app.requestSingleInstanceLock()) {
         return new Response(null, { status: 500 })
       }
     })
+
+    const launcher = createGameLauncher()
+    const recuo = createRecuo({
+      // O Jogo já está na frente: destruir a janela tira o Hub da tela sem matar a Sessão.
+      destruirJanela: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy()
+      },
+      restaurarJanela
+    })
+    const sessao = createGameSession({
+      launcher,
+      acharJogo: (jogoId) =>
+        findLaunchableJogo(jogoId, { lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult }),
+      resolverExe: (jogo) => resolveGameExe(app.getPath('userData'), jogo),
+      aoIniciar: () => recuo.recuar(),
+      aoEncerrar: () => recuo.voltar()
+    })
+    session = sessao
 
     await cleanupOrphanedCacheDirs(app.getPath('userData'))
 
@@ -182,8 +227,20 @@ if (!app.requestSingleInstanceLock()) {
 
     ipcMain.handle(
       IPC.APP_HYDRATE,
-      (): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>> =>
-        handleAppHydrate({ lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult })
+      (): Promise<
+        CommandResult<{ mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }>
+      > =>
+        handleAppHydrate({
+          lerConfigEstacao: () => store.lerConfigEstacao(),
+          getCatalogResult,
+          ultimoJogoId: () => sessao.ultimoJogoId()
+        })
+    )
+
+    ipcMain.handle(IPC.GAME_LAUNCH, (_event, jogoId: unknown): Promise<CommandResult> =>
+      typeof jogoId === 'string'
+        ? sessao.lancar(jogoId)
+        : Promise.resolve({ ok: false, code: 'JOGO_DESCONHECIDO' })
     )
 
     ipcMain.handle(IPC.CONFIG_ROSTER, (): Promise<CommandResult<{ roster: Jogo[]; sincronizadoEm: string }>> =>
@@ -206,6 +263,8 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.on('window-all-closed', () => {
+    // Sem a janela o Hub é só o `main`: a Sessão de Jogo continua viva.
+    if (session?.emExecucao()) return
     if (process.platform !== 'darwin') app.quit()
   })
 

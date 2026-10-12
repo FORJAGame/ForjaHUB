@@ -68,18 +68,37 @@ O que já está implementado e testado:
   focado, e cursor que some quando fica parado.
 - **Launcher de processo**: módulo no main para abrir executáveis locais e
   monitorar o fechamento (evento de saída do processo ou polling por nome
-  do processo alvo). Ainda não está ligado à interface.
+  do processo alvo).
+- **JOGAR**: o renderer pede `game:launch`, o main resolve o executável em
+  `userData/games/<id>/`, abre pelo launcher de processo, recolhe a janela
+  ~1,5s depois e a recria quando o Jogo fecha, voltando ao card jogado. O
+  selo QR das redes do Jogo é gerado no main (`qrcode`) e servido por
+  `forja://media/<id>/qr`.
 
 O que **ainda não existe**:
 
-- Tela de detalhes do Jogo (hoje é um placeholder com o título; `Esc` ou o
-  botão B do controle volta ao catálogo).
-- Botão de jogar: download e extração do `.zip` do Jogo, e o disparo do
-  launcher a partir da interface.
+- Download e extração do `.zip` do Jogo: o build entra à mão, em
+  `<userData>/games/<id>/` (veja [Instalando um Jogo à mão](#instalando-um-jogo-à-mão)).
 - Modo atração, painel do operador (`Ctrl+Shift+O` só troca para um
   placeholder), busca e filtros.
 - Analytics de sessão (tempo de jogo, visualizações).
 - Empacotamento e instalador testados para Windows (alvo principal).
+
+## Instalando um Jogo à mão
+
+O Hub não baixa builds (no momento): coloque os arquivos do Jogo em `games/<id>/` dentro do `userData` da estação — `~/.config/forja-hub/games/<id>/` no Linux e
+`%APPDATA%\forja-hub\games\<id>\` no Windows, sendo `<id>` o `id` do Jogo na
+Planilha.
+
+Com `exe_relativo` preenchido na Planilha, é esse o executável aberto, sempre
+confinado à pasta do Jogo (aceita `sub/pasta/Jogo.exe`, com `/` ou `\`).
+Vazio, o Hub procura sozinho até 2 níveis abaixo da pasta do Jogo: no Windows,
+o único `.exe`; nas outras plataformas, o único arquivo com permissão de
+execução (fora bibliotecas `.so`, `.so.N` e `.dylib`). Auxiliares conhecidos
+(`unins000`, `UnityCrashHandler*`, `crashpad_handler`, `notification_helper`,
+`vc_redist*`, `dxsetup`, `UE4PrereqSetup*` e o `*.console` do Godot) são
+ignorados. Sem candidato ou com mais de um, o JOGAR falha e o motivo vai para o
+log do `main`; o `exe_relativo` é quem desempata.
 
 # Stack
 

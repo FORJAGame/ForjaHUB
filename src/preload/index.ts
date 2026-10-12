@@ -12,6 +12,7 @@ const forjaAPI: ForjaAPI = {
   },
   configRoster: () => ipcRenderer.invoke(IPC.CONFIG_ROSTER),
   configSetupSubmit: (input) => ipcRenderer.invoke(IPC.CONFIG_SETUP_SUBMIT, input),
+  gameLaunch: (jogoId) => ipcRenderer.invoke(IPC.GAME_LAUNCH, jogoId),
   onCatalogUpdated: (cb) => {
     const handler = (_event: unknown, catalogo: Catalogo): void => cb(catalogo)
     ipcRenderer.on(IPC.CATALOG_UPDATED, handler)
