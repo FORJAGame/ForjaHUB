@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Catalogo, CommandResult, ConfigEstacao, Jogo } from '@shared/types'
 import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from '../../store/config-estacao'
-import { handleAppHydrate, handleConfigRoster, handleConfigSetupSubmit } from '../handlers'
+import { findLaunchableJogo, handleAppHydrate, handleConfigRoster, handleConfigSetupSubmit } from '../handlers'
 
 const CATALOGO: Catalogo = {
   jogos: [
@@ -120,7 +120,7 @@ describe('handleAppHydrate', () => {
   it('sem config -> setup sem Catálogo e sem esperar o sync', async () => {
     const getCatalogResult = vi.fn()
     const result = await handleAppHydrate({ lerConfigEstacao: async () => null, getCatalogResult })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
     expect(getCatalogResult).not.toHaveBeenCalled()
   })
 
@@ -130,7 +130,7 @@ describe('handleAppHydrate', () => {
       lerConfigEstacao: async () => config(['fantasma', 'sumido']),
       getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
     })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
     expect(warn).toHaveBeenCalledWith(expect.any(String), ['fantasma', 'sumido'])
   })
 
@@ -174,5 +174,117 @@ describe('handleAppHydrate', () => {
     })
     expect(result).toEqual({ ok: false, code: 'STORE_INDISPONIVEL' })
   })
+
+  it('último Jogo lançado ainda na view -> focusedGameId é ele', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite', 'corvo']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
+      ultimoJogoId: () => 'rebite'
+    })
+    expect(result.ok && result.mode).toBe('catalog')
+    expect(result.ok && result.focusedGameId).toBe('rebite')
+  })
+
+  it('último Jogo lançado fora da view (não selecionado ou sumido) -> focusedGameId null', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
+      ultimoJogoId: () => 'pancada'
+    })
+    expect(result.ok && result.mode).toBe('catalog')
+    expect(result.ok && result.focusedGameId).toBeNull()
+  })
+
+  it('sem ultimoJogoId (ou null) -> focusedGameId null', async () => {
+    const semDep = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+    })
+    expect(semDep.ok && semDep.focusedGameId).toBeNull()
+
+    const comNull = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite']),
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
+      ultimoJogoId: () => null
+    })
+    expect(comNull.ok && comNull.focusedGameId).toBeNull()
+  })
 })
 
+
+describe('handleAppHydrate — foco da volta de uma partida', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('Jogo desselecionado depois de jogado: o hydrate seguinte não foca nele', async () => {
+    let selecionados = ['rebite', 'corvo']
+    const deps = {
+      lerConfigEstacao: async () => config(selecionados),
+      getCatalogResult: async () => ({ ok: true as const, catalogo: CATALOGO_KIOSK }),
+      ultimoJogoId: () => 'corvo'
+    }
+
+    const antes = await handleAppHydrate(deps)
+    expect(antes.ok && antes.focusedGameId).toBe('corvo')
+
+    selecionados = ['rebite']
+    const depois = await handleAppHydrate(deps)
+    expect(depois.ok && depois.mode).toBe('catalog')
+    expect(depois.ok && depois.focusedGameId).toBeNull()
+  })
+
+  it('Jogo jogado que sumiu do Catálogo sincronizado: focusedGameId null, mesmo ainda selecionado', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => config(['rebite', 'corvo']),
+      getCatalogResult: async () => ({
+        ok: true,
+        catalogo: { ...CATALOGO_KIOSK, jogos: CATALOGO_KIOSK.jogos.filter((j) => j.id !== 'corvo') }
+      }),
+      ultimoJogoId: () => 'corvo'
+    })
+    expect(result.ok && result.mode).toBe('catalog')
+    expect(result.ok && result.focusedGameId).toBeNull()
+  })
+
+  it('config ausente com Jogo jogado: setup, sem foco', async () => {
+    const result = await handleAppHydrate({
+      lerConfigEstacao: async () => null,
+      getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
+      ultimoJogoId: () => 'rebite'
+    })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
+  })
+})
+
+describe('findLaunchableJogo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const deps = (selecionados: string[] | null): Parameters<typeof findLaunchableJogo>[1] => ({
+    lerConfigEstacao: async () => (selecionados ? config(selecionados) : null),
+    getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
+  })
+
+  it('Jogo selecionado e no Catálogo -> devolve o Jogo', async () => {
+    await expect(findLaunchableJogo('corvo', deps(['corvo', 'rebite']))).resolves.toMatchObject({ id: 'corvo' })
+  })
+
+  it('Jogo no Catálogo mas fora da seleção da Estação -> null (o renderer não abre build alheio)', async () => {
+    await expect(findLaunchableJogo('pancada', deps(['corvo']))).resolves.toBeNull()
+  })
+
+  it('sem config, Catálogo falho ou leitura que lança -> null', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(findLaunchableJogo('corvo', deps(null))).resolves.toBeNull()
+    await expect(
+      findLaunchableJogo('corvo', { ...deps(['corvo']), getCatalogResult: async () => ({ ok: false, code: 'X' }) })
+    ).resolves.toBeNull()
+    await expect(
+      findLaunchableJogo('corvo', {
+        ...deps(['corvo']),
+        lerConfigEstacao: async () => {
+          throw new Error('EIO')
+        }
+      })
+    ).resolves.toBeNull()
+  })
+})

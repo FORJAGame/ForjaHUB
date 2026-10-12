@@ -48,16 +48,17 @@ export async function handleConfigSetupSubmit(
 export interface HandleAppHydrateDeps {
   lerConfigEstacao: Store['lerConfigEstacao']
   getCatalogResult: GetCatalogResult
+  ultimoJogoId?: () => string | null
 }
 
 /**
  * Sem config ⇒ `setup` sem esperar o Catálogo. Com config, espera o Catálogo do boot (até 10s
  * com Cache; sem Cache, até o sync terminar) e entrega só os Jogos selecionados; seleção
- * inteira órfã volta ao `setup`.
+ * inteira órfã volta ao `setup`. `focusedGameId` só vale se o Jogo ainda está na view.
  */
 export async function handleAppHydrate(
   deps: HandleAppHydrateDeps
-): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null }>> {
+): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }>> {
   let config: ConfigEstacao | null
   try {
     config = await deps.lerConfigEstacao()
@@ -68,12 +69,37 @@ export async function handleAppHydrate(
     console.error('[main] falha lendo station.json:', err)
     return { ok: false, code: 'STORE_INDISPONIVEL' }
   }
-  if (!config) return { ok: true, mode: 'setup', catalogo: null }
+  if (!config) return { ok: true, mode: 'setup', catalogo: null, focusedGameId: null }
 
   const catalogResult = await deps.getCatalogResult()
   if (!catalogResult.ok) return catalogResult
 
   const catalogo = catalogoDoKiosk(catalogResult.catalogo, config.jogosSelecionados)
-  if (!catalogo) return { ok: true, mode: 'setup', catalogo: null }
-  return { ok: true, mode: 'catalog', catalogo }
+  if (!catalogo) return { ok: true, mode: 'setup', catalogo: null, focusedGameId: null }
+
+  const ultimo = deps.ultimoJogoId?.() ?? null
+  const focusedGameId = ultimo && catalogo.jogos.some((jogo) => jogo.id === ultimo) ? ultimo : null
+  return { ok: true, mode: 'catalog', catalogo, focusedGameId }
+}
+
+/**
+ * Só Jogo da view do kiosk (selecionado e presente no Catálogo) pode ser lançado:
+ * um id qualquer vindo do renderer nunca abre um build fora da seleção da Estação.
+ * Qualquer falha de leitura vira "não conheço esse Jogo".
+ */
+export async function findLaunchableJogo(
+  jogoId: string,
+  deps: Pick<HandleAppHydrateDeps, 'lerConfigEstacao' | 'getCatalogResult'>
+): Promise<Jogo | null> {
+  try {
+    const config = await deps.lerConfigEstacao()
+    if (!config) return null
+    const result = await deps.getCatalogResult()
+    if (!result.ok) return null
+    const catalogo = catalogoDoKiosk(result.catalogo, config.jogosSelecionados)
+    return catalogo?.jogos.find((jogo) => jogo.id === jogoId) ?? null
+  } catch (err) {
+    console.error('[main] falha buscando o Jogo para lançar:', err)
+    return null
+  }
 }

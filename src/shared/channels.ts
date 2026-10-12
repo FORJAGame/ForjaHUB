@@ -1,8 +1,8 @@
 /**
  * Mapa único de canais IPC — importado por `main` e `preload`.
  * Ainda só liga `WINDOW_TOGGLE_FULLSCREEN`, `WINDOW_QUIT`, `OPERATOR_OPEN`,
- * `APP_HYDRATE`, `CONFIG_ROSTER` e `CONFIG_SETUP_SUBMIT`. O restante entra
- * como constante para fixar o contrato agora.
+ * `APP_HYDRATE`, `CONFIG_ROSTER`, `CONFIG_SETUP_SUBMIT` e `GAME_LAUNCH`. O restante
+ * entra como constante para fixar o contrato agora.
  */
 export const IPC = {
   // Comandos renderer → main (ipcRenderer.invoke / ipcMain.handle)
@@ -11,6 +11,7 @@ export const IPC = {
   CONFIG_SETUP_SUBMIT: 'config:setup-submit',
   WINDOW_TOGGLE_FULLSCREEN: 'window:toggle-fullscreen',
   WINDOW_QUIT: 'window:quit',
+  GAME_LAUNCH: 'game:launch',
   OPERATOR_FORCE_SYNC: 'operator:force-sync',
   OPERATOR_REOPEN_SETUP: 'operator:reopen-setup',
   ANALYTICS_FLUSH: 'analytics:flush',

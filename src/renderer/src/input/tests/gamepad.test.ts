@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { NEUTRAL_DIGITAL, readGamepadIntents, selectActiveGamepad, type GamepadLike } from '../gamepad'
+import {
+  createGamepadReader,
+  NEUTRAL_DIGITAL,
+  readGamepadIntents,
+  selectActiveGamepad,
+  type GamepadLike
+} from '../gamepad'
 
 function makePad(overrides: Partial<{ buttons: Record<number, boolean>; axes: number[] }>): GamepadLike {
   const buttons = Array.from({ length: 17 }, (_, i) => ({ pressed: overrides.buttons?.[i] ?? false }))
@@ -93,5 +99,23 @@ describe('selectActiveGamepad — único Controle ativo', () => {
 
   it('dois conectados: só o de menor index (primeiro não-nulo) — o segundo Controle não navega em paralelo', () => {
     expect(selectActiveGamepad(['pad-0', 'pad-1'])).toBe('pad-0')
+  })
+})
+
+describe('createGamepadReader — tela recém-montada', () => {
+  it('A ainda apertado no 1º frame (o que abriu a tela) não vira confirm; só a próxima pressão', () => {
+    const ler = createGamepadReader()
+    const segurandoA = makePad({ buttons: { 0: true } })
+    expect(ler(segurandoA)).toEqual([])
+    expect(ler(segurandoA)).toEqual([])
+    expect(ler(makePad({}))).toEqual([])
+    expect(ler(segurandoA)).toEqual(['confirm'])
+  })
+
+  it('Controle que reconecta com botão apertado conta como pressão nova', () => {
+    const ler = createGamepadReader()
+    ler(makePad({}))
+    expect(ler(null)).toEqual([])
+    expect(ler(makePad({ buttons: { 1: true } }))).toEqual(['back'])
   })
 })

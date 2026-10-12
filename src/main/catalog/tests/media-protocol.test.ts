@@ -67,6 +67,18 @@ describe('resolveMediaAsset', () => {
     }
   )
 
+  it.each(['qrx', 'qrX', 'qr.png', 'detalhe-'])('quase-qr (%s) -> null', async (tipo) => {
+    const mediaBaseDir = tmpDir()
+    montarMedia(mediaBaseDir, 'jogo-a', ['qr.png'])
+    expect(await resolveMediaAsset(mediaBaseDir, 'jogo-a', tipo)).toBeNull()
+  })
+
+  it('qr nunca sai do disco, mesmo com qr.png na pasta', async () => {
+    const mediaBaseDir = tmpDir()
+    montarMedia(mediaBaseDir, 'jogo-a', ['qr.png'])
+    expect(await resolveMediaAsset(mediaBaseDir, 'jogo-a', 'qr')).toBeNull()
+  })
+
   it('id válido mas pasta do Jogo não existe -> null', async () => {
     const mediaBaseDir = tmpDir()
     expect(await resolveMediaAsset(mediaBaseDir, 'jogo-fantasma', 'capa')).toBeNull()
@@ -96,6 +108,15 @@ describe('parseForjaMediaUrl', () => {
   it('URL bem formada -> { id, tipo }', () => {
     expect(parseForjaMediaUrl('forja://media/jogo-a/capa')).toEqual({ id: 'jogo-a', tipo: 'capa' })
     expect(parseForjaMediaUrl('forja://media/jogo-a/detalhe-3')).toEqual({ id: 'jogo-a', tipo: 'detalhe-3' })
+  })
+
+  it('aceita o `qr` do selo das redes', () => {
+    expect(parseForjaMediaUrl('forja://media/jogo-a/qr?v=1')).toEqual({ id: 'jogo-a', tipo: 'qr' })
+  })
+
+  it('quase-qr (`qrx`, `detalhe-`) também parseia: o filtro do tipo é do resolveMediaAsset', () => {
+    expect(parseForjaMediaUrl('forja://media/jogo-a/qrx')).toEqual({ id: 'jogo-a', tipo: 'qrx' })
+    expect(parseForjaMediaUrl('forja://media/jogo-a/detalhe-')).toEqual({ id: 'jogo-a', tipo: 'detalhe-' })
   })
 
   it('URL malformada (não parseia como URL) -> null', () => {
@@ -138,4 +159,35 @@ describe('mediaUrl (renderer) ↔ parseForjaMediaUrl/resolveMediaAsset (main)', 
       expect(resolved?.path).toBe(join(base, 'mortis-pactum', `${tipo}.jpg`))
     }
   )
+
+  it('ida e volta do `qr`: a rota chega ao main, mas não há arquivo para resolver', async () => {
+    const url = mediaUrl('mortis-pactum', 'qr', '2026-09-25T12:34:56.789Z')
+    const parsed = parseForjaMediaUrl(url)
+    expect(parsed).toEqual({ id: 'mortis-pactum', tipo: 'qr' })
+
+    const base = tmpDir()
+    montarMedia(base, 'mortis-pactum', ['capa.png'])
+    await expect(resolveMediaAsset(base, parsed?.id ?? '', parsed?.tipo ?? '')).resolves.toBeNull()
+  })
+})
+
+describe('rota do `qr` — forma aceita e rejeitada', () => {
+  it('`forja://media/<id>/qr?v=x` parseia como qr', () => {
+    expect(parseForjaMediaUrl('forja://media/jogo-a/qr?v=x')).toEqual({ id: 'jogo-a', tipo: 'qr' })
+  })
+
+  it('`../qr` escapando do id não parseia', () => {
+    expect(parseForjaMediaUrl('forja://media/jogo-a/../qr')).toBeNull()
+    expect(parseForjaMediaUrl('forja://media/jogo-a/%2e%2e/qr')).toBeNull()
+  })
+
+  it.each(['qr.png', 'QR'])('`%s` não chega a ser o tipo `qr` nem serve um arquivo', async (tipo) => {
+    const base = tmpDir()
+    montarMedia(base, 'jogo-a', ['qr.png', 'QR.png'])
+
+    const parsed = parseForjaMediaUrl(`forja://media/jogo-a/${tipo}`)
+
+    expect(parsed?.tipo).not.toBe('qr')
+    await expect(resolveMediaAsset(base, parsed?.id ?? 'jogo-a', parsed?.tipo ?? tipo)).resolves.toBeNull()
+  })
 })

@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { KEBAB_CASE_RE } from './schema'
 
-const TIPO_RE = /^(?:capa|hero|logo|detalhe-\d+)$/
+const TIPO_RE = /^(?:capa|hero|logo|qr|detalhe-\d+)$/
 
 export const IMAGE_CONTENT_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -45,6 +45,8 @@ export async function resolveMediaAsset(
   tipo: string
 ): Promise<ResolvedMediaAsset | null> {
   if (!KEBAB_CASE_RE.test(id) || !TIPO_RE.test(tipo)) return null
+  // `qr` não é arquivo do Drive: quem responde essa rota é o gerador de PNG.
+  if (tipo === 'qr') return null
 
   const jogoDir = join(mediaBaseDir, id)
   // defesa extra

@@ -50,6 +50,20 @@ export function readGamepadIntents(
   return { intents, digital }
 }
 
+export function createGamepadReader(): (pad: GamepadLike | null) => Intent[] {
+  let digital: DigitalState | null = null
+  return (pad) => {
+    if (!pad) {
+      digital = NEUTRAL_DIGITAL
+      return []
+    }
+    const next = readGamepadIntents(pad, digital ?? NEUTRAL_DIGITAL)
+    const intents = digital === null ? [] : next.intents
+    digital = next.digital
+    return intents
+  }
+}
+
 /** Único Controle ativo */
 export function selectActiveGamepad<T>(pads: readonly (T | null)[]): T | null {
   for (const pad of pads) {
