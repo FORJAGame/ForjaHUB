@@ -13,11 +13,17 @@ interface GameCardProps {
   onConfirm: () => void
 }
 
-/** `modalidade-icon`: forma distinta + micro-rótulo, nunca só cor. */
-function ModalidadeIcon({ modalidade }: { modalidade: Jogo['modalidade'] }): JSX.Element {
+/** `modalidade-icon`: forma distinta + micro-rótulo, nunca só cor. A posição é de quem usa. */
+export function ModalidadeIcon({
+  modalidade,
+  className = ''
+}: {
+  modalidade: Jogo['modalidade']
+  className?: string
+}): JSX.Element {
   const multi = modalidade === 'multiplayer'
   return (
-    <div className="text-label-caps meta-legible absolute bottom-3 left-3 flex items-center gap-1.5 text-ink-secondary">
+    <div className={`text-label-caps meta-legible flex items-center gap-1.5 text-ink-secondary ${className}`}>
       {multi ? (
         <svg viewBox="0 0 24 16" aria-hidden="true" className="block h-3.75 w-auto fill-ink-secondary">
           <circle cx="7" cy="4.6" r="2.7" />
@@ -65,7 +71,7 @@ export default function GameCard({
           }`}
         >
           <FallbackImage src={capaSrc} fallback={null} alt="" decoding="async" className="h-full w-full object-cover" />
-          <ModalidadeIcon modalidade={jogo.modalidade} />
+          <ModalidadeIcon modalidade={jogo.modalidade} className="absolute bottom-3 left-3" />
         </div>
         {focused && sparkSeed > 0 && <Sparks key={sparkSeed} seed={sparkSeed} />}
       </div>
