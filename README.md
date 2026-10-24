@@ -74,6 +74,10 @@ O que já está implementado e testado:
   ~1,5s depois e a recria quando o Jogo fecha, voltando ao card jogado. O
   selo QR das redes do Jogo é gerado no main (`qrcode`) e servido por
   `forja://media/<id>/qr`.
+- **Analytics de sessão**: cada Sessão de Jogo vira um registro anônimo
+  (Jogo, estação, evento, início, duração) gravado em `userData/analytics/`
+  e enviado em segundo plano para a Planilha de Analytics (veja
+  [Analytics](#analytics)).
 
 O que **ainda não existe**:
 
@@ -81,7 +85,6 @@ O que **ainda não existe**:
   `<userData>/games/<id>/` (veja [Instalando um Jogo à mão](#instalando-um-jogo-à-mão)).
 - Modo atração, painel do operador (`Ctrl+Shift+O` só troca para um
   placeholder), busca e filtros.
-- Analytics de sessão (tempo de jogo, visualizações).
 - Empacotamento e instalador testados para Windows (alvo principal).
 
 ## Instalando um Jogo à mão
@@ -99,6 +102,32 @@ execução (fora bibliotecas `.so`, `.so.N` e `.dylib`). Auxiliares conhecidos
 `vc_redist*`, `dxsetup`, `UE4PrereqSetup*` e o `*.console` do Godot) são
 ignorados. Sem candidato ou com mais de um, o JOGAR falha e o motivo vai para o
 log do `main`; o `exe_relativo` é quem desempata.
+
+## Analytics
+
+Cada Sessão de Jogo gera um registro sem dado pessoal, carimbado com a
+estação e o evento do setup. Ele é gravado em disco antes de qualquer envio
+(`userData/analytics/spool.jsonl`, com `fsync`), então nada se perde sem rede
+ou numa queda de energia. Um Jogo aberto mantém `open-session.json` atualizado
+a cada minuto: se a estação desligar, o próximo boot fecha a sessão com
+`incompleta = sim`. Fechar o Hub com `Ctrl+Shift+Q` durante um Jogo também
+marca `incompleta`, mas com a duração real.
+
+O envio vai para uma Planilha Google dedicada, na aba `Analytics`, com o
+cabeçalho criado à mão na linha 1:
+
+| A | B | C | D | E | F | G | H |
+|---|---|---|---|---|---|---|---|
+| `id` | `evento` | `estacao` | `jogo` | `inicio` | `inicio_local` | `duracao_seg` | `incompleta` |
+
+`inicio` é ISO UTC e `inicio_local` é o horário da estação. A Planilha precisa
+estar compartilhada com a service account como **editor**, e o ID vai em
+`MAIN_VITE_ANALYTICS_SPREADSHEET_ID` no `.env` (ou `analyticsSpreadsheetId` em
+`userData/config/app-config.json`). O envio roda depois do sync do boot e uns
+segundos após cada Sessão. Sem rede, tenta de novo em 5 min e depois a cada
+10 min. Reenviar nunca duplica linha: o Hub lê a coluna `id` e só anexa o que
+falta. Sem ID ou sem credencial, os registros continuam no disco e sobem
+quando a configuração existir.
 
 # Stack
 

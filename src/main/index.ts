@@ -16,6 +16,8 @@ import {
   handleConfigRoster,
   handleConfigSetupSubmit
 } from './config/handlers'
+import { bootAnalytics, type Analytics } from './analytics/boot'
+import { createQuitGuard } from './analytics/quit-guard'
 import { createGameLauncher } from './launcher'
 import { createGameSession, type GameSession } from './launcher/game-session'
 import { createRecuo } from './launcher/recuo'
@@ -41,6 +43,8 @@ let mainWindow: BrowserWindow | null = null
 let store: Store
 /** Fica no módulo porque o `window-all-closed` é registrado fora do `whenReady`. */
 let session: GameSession | null = null
+/** `null` = analytics desligado nesta execução (spool inutilizável). */
+let analytics: Analytics | null = null
 
 let catalogoAtual: CommandResult<{ catalogo: Catalogo }> | null = null
 let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
@@ -184,6 +188,9 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
 
+    analytics = await bootAnalytics(app.getPath('userData'), () => store.lerConfigEstacao())
+    const recorder = analytics?.recorder ?? null
+
     const launcher = createGameLauncher()
     const recuo = createRecuo({
       // O Jogo já está na frente: destruir a janela tira o Hub da tela sem matar a Sessão.
@@ -198,7 +205,9 @@ if (!app.requestSingleInstanceLock()) {
         findLaunchableJogo(jogoId, { lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult }),
       resolverExe: (jogo) => resolveGameExe(app.getPath('userData'), jogo),
       aoIniciar: () => recuo.recuar(),
-      aoEncerrar: () => recuo.voltar()
+      aoEncerrar: () => recuo.voltar(),
+      abrirSessao: (s) => recorder?.iniciar(s) ?? Promise.resolve(),
+      registrarSessao: (s) => recorder?.encerrar(s) ?? Promise.resolve()
     })
     session = sessao
 
@@ -217,9 +226,13 @@ if (!app.requestSingleInstanceLock()) {
         }
       }
     })
-    catalogoInicial.then((result) => {
-      if (!catalogoAtual) catalogoAtual = result
-    })
+    catalogoInicial
+      .then((result) => {
+        if (!catalogoAtual) catalogoAtual = result
+      })
+      .catch((err) => console.error('[main] Catálogo do boot falhou:', err))
+      // Envio pós-Catálogo do boot; nunca bloqueia nem falha o boot.
+      .finally(() => void analytics?.flusher.flushAgora())
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
@@ -267,6 +280,19 @@ if (!app.requestSingleInstanceLock()) {
     if (session?.emExecucao()) return
     if (process.platform !== 'darwin') app.quit()
   })
+
+  // Quit com Jogo aberto: fecha a Sessão com a duração real antes de sair.
+  app.on(
+    'before-quit',
+    createQuitGuard({
+      temSessao: () => Boolean(analytics && (session?.emExecucao() || analytics.recorder.aberta())),
+      encerrar: async () => {
+        analytics?.flusher.parar()
+        await analytics?.recorder.encerrarNoQuit()
+      },
+      sair: () => app.quit()
+    })
+  )
 
   app.on('will-quit', () => globalShortcut.unregisterAll())
 }
