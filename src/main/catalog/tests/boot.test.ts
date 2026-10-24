@@ -66,22 +66,25 @@ describe('bootCatalog', () => {
     expect(onSynced).toHaveBeenCalledWith({ ok: true, catalogo: fresco })
   })
 
-  it('I/O Matrix "Timeout 10s, com Cache": sync em background que falha NÃO dispara onSynced', async () => {
+  it('I/O Matrix "Timeout 10s, com Cache": sync em background que falha NÃO dispara onSynced, dispara onSyncFailed', async () => {
     vi.useFakeTimers()
 
     const { promise: syncPromise, resolve: resolveSync } = deferred<Result>()
     const sync = vi.fn(() => syncPromise)
     const readCache = vi.fn().mockResolvedValue(catalogo('2020-01-01T00:00:00.000Z'))
     const onSynced = vi.fn()
+    const onSyncFailed = vi.fn()
 
-    const resultPromise = bootCatalog('/base', { sync, readCache, onSynced })
+    const resultPromise = bootCatalog('/base', { sync, readCache, onSynced, onSyncFailed })
     await vi.advanceTimersByTimeAsync(CATALOG_SYNC_TIMEOUT_MS)
     await resultPromise
+    expect(onSyncFailed).not.toHaveBeenCalled()
 
     resolveSync({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
     await vi.runAllTimersAsync()
 
     expect(onSynced).not.toHaveBeenCalled()
+    expect(onSyncFailed).toHaveBeenCalledTimes(1)
   })
 
   it('I/O Matrix "Timeout/sem rede, sem Cache": sem Cache, espera o sync original até o fim (sem novo timeout)', async () => {
@@ -131,18 +134,20 @@ describe('bootCatalog', () => {
     expect(onSynced).toHaveBeenCalledWith({ ok: true, catalogo: fresco })
   })
 
-  it('sync falha DENTRO do budget + Cache presente -> usa o Cache (Estação configurada ligando offline)', async () => {
+  it('sync falha DENTRO do budget + Cache presente -> usa o Cache (Estação configurada ligando offline) e avisa a falha', async () => {
     vi.useFakeTimers()
 
     const cache = catalogo('2026-09-01T00:00:00.000Z')
     const sync = vi.fn().mockResolvedValue({ ok: false, code: 'CATALOGO_INDISPONIVEL' } satisfies Result)
     const readCache = vi.fn().mockResolvedValue(cache)
     const onSynced = vi.fn()
+    const onSyncFailed = vi.fn()
 
-    const result = await bootCatalog('/base', { sync, readCache, onSynced })
+    const result = await bootCatalog('/base', { sync, readCache, onSynced, onSyncFailed })
 
     expect(result).toEqual({ ok: true, catalogo: cache })
     expect(onSynced).not.toHaveBeenCalled()
+    expect(onSyncFailed).toHaveBeenCalledTimes(1)
   })
 
   it('sync falha DENTRO do budget + sem Cache -> devolve a falha original', async () => {

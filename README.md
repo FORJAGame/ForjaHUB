@@ -130,6 +130,10 @@ A URL e a anon key vão em `MAIN_VITE_SUPABASE_URL` e
 sobrepõe o do build). O sync do boot é tudo-ou-nada: um Jogo inválido ou uma
 mídia faltando descarta o sync e mantém o cache anterior.
 
+Sem rede, o Hub roda com o cache local. Um sync que falhou tenta de novo em
+segundo plano (1 min, dobrando até 10 min) e, quando dá certo, a vitrine
+recebe o Catálogo novo sem reiniciar.
+
 ## Analytics
 
 Cada Sessão de Jogo gera um registro sem dado pessoal, carimbado com a
@@ -148,6 +152,10 @@ roda depois do sync do boot e uns segundos após cada Sessão. Sem rede, tenta
 de novo em 5 min e depois a cada 10 min. Reenviar nunca duplica linha:
 `registrar_sessoes` usa `on conflict (id) do nothing`. Sem URL ou anon key, os registros
 continuam no disco e sobem quando a configuração existir.
+
+O main confere a rede a cada 10 s (`net.isOnline()`). Quando ela volta, as
+Sessões pendentes e um sync de Catálogo que tinha falhado saem na hora, sem
+esperar o backoff.
 
 # Stack
 

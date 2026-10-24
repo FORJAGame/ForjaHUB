@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'path'
-import { app, BrowserWindow, globalShortcut, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, net, protocol } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/channels'
 import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
-import { bootCatalog } from './catalog/boot'
+import { bootCatalog, type SyncOk } from './catalog/boot'
+import { createCatalogResync } from './catalog/resync'
+import { sync as syncCatalogo } from './catalog/sync'
 import { kioskCatalogUpdate } from './catalog/kiosk-view'
 import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
@@ -23,6 +25,7 @@ import { createGameSession, type GameSession } from './launcher/game-session'
 import { createRecuo } from './launcher/recuo'
 import { resolveGameExe } from './launcher/resolve-exe'
 import { createStore } from './store'
+import { vigiarConexao } from './conexao'
 import type { Store } from './ports'
 
 // roda no top-level do módulo
@@ -213,18 +216,22 @@ if (!app.requestSingleInstanceLock()) {
 
     await cleanupOrphanedCacheDirs(app.getPath('userData'))
 
-    catalogoInicial = bootCatalog(app.getPath('userData'), {
-      onSynced: async (result) => {
-        try {
-          catalogoAtual = result
-          const view = await kioskCatalogUpdate(result.catalogo, () => store.lerConfigEstacao())
-          if (view && mainWindow && !mainWindow.webContents.isDestroyed()) {
-            mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
-          }
-        } catch (err) {
-          console.error('[main] falha enviando catalog:updated:', err)
+    const aplicarCatalogo = async (result: SyncOk): Promise<void> => {
+      try {
+        catalogoAtual = result
+        const view = await kioskCatalogUpdate(result.catalogo, () => store.lerConfigEstacao())
+        if (view && mainWindow && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
         }
+      } catch (err) {
+        console.error('[main] falha enviando catalog:updated:', err)
       }
+    }
+    const catalogResync = createCatalogResync({ sync: syncCatalogo, onSynced: aplicarCatalogo })
+
+    catalogoInicial = bootCatalog(app.getPath('userData'), {
+      onSynced: aplicarCatalogo,
+      onSyncFailed: () => catalogResync.agendar()
     })
     catalogoInicial
       .then((result) => {
@@ -233,6 +240,15 @@ if (!app.requestSingleInstanceLock()) {
       .catch((err) => console.error('[main] Catálogo do boot falhou:', err))
       // Envio pós-Catálogo do boot; nunca bloqueia nem falha o boot.
       .finally(() => void analytics?.flusher.flushAgora())
+
+    // Rede voltou: Catálogo que ficou para trás e Sessões no disco sobem já, sem esperar o backoff.
+    vigiarConexao({
+      estaOnline: () => net.isOnline(),
+      aoVoltar: () => {
+        catalogResync.tentarAgora()
+        void analytics?.flusher.flushAgora()
+      }
+    })
 
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
