@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { createQuitGuard, type QuitGuardDeps } from '../quit-guard'
 
-function evento(): { preventDefault: ReturnType<typeof vi.fn> } {
-  return { preventDefault: vi.fn() }
+// `vi.fn()` sem tipo devolve `Mock<Procedure | Constructable>`, que o TS não aceita
+// como `preventDefault(): void` no Vitest 5.
+function evento(): { preventDefault: Mock<() => void> } {
+  return { preventDefault: vi.fn<() => void>() }
 }
 
 function montar(over: Partial<QuitGuardDeps> = {}): {
