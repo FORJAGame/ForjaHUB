@@ -21,6 +21,8 @@ export interface GameSessionDeps {
   resolverExe(jogo: Jogo): Promise<ResolveExeResult>
   aoIniciar(jogoId: string): void
   aoEncerrar(): void
+  /** Disco pode falhar/ser lento: o lançamento nunca espera nem depende disto. */
+  abrirSessao?: (s: { jogoId: string; inicioISO: string }) => Promise<void>
   registrarSessao?: (s: SessaoEncerrada) => Promise<void>
   agora?: () => Date
 }
@@ -32,6 +34,18 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
   let sessao: SessaoAtiva | null = null
   let ultimo: string | null = null
   let lancando = false
+
+  // Sem `await`: o Jogo já abriu; um erro de disco só aparece no log.
+  function avisarAbertura(jogoId: string, inicioISO: string): void {
+    if (!deps.abrirSessao) return
+    try {
+      void deps.abrirSessao({ jogoId, inicioISO }).catch((err) => {
+        console.error('[main] falha registrando o início da Sessão:', err)
+      })
+    } catch (err) {
+      console.error('[main] falha registrando o início da Sessão:', err)
+    }
+  }
 
   async function lancar(jogoId: string): Promise<CommandResult> {
     if (sessao || lancando) return { ok: false, code: 'JOGO_EM_EXECUCAO' }
@@ -48,8 +62,10 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
 
       if ((await deps.launcher.launch(resolvido.exeAbs)) === 'error') return { ok: false, code: 'FALHA_AO_ABRIR' }
 
-      sessao = { jogoId, inicioISO: agora().toISOString() }
+      const inicioISO = agora().toISOString()
+      sessao = { jogoId, inicioISO }
       ultimo = jogoId
+      avisarAbertura(jogoId, inicioISO)
       deps.aoIniciar(jogoId)
       return { ok: true }
     } catch (err) {

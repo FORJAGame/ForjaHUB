@@ -176,6 +176,61 @@ describe('createGameSession — lancar', () => {
     await expect(session.lancar('nao-existe')).resolves.toEqual({ ok: false, code: 'JOGO_DESCONHECIDO' })
     await expect(session.lancar('jogo-a')).resolves.toEqual({ ok: true })
   })
+
+  it('abrirSessao recebe o mesmo inicioISO que depois chega no registrarSessao', async () => {
+    const aberto = vi.fn(async () => {})
+    const { session, fake, sessoes } = montar({ abrirSessao: aberto })
+
+    await session.lancar('jogo-a')
+    await fake.emitirExit({ durationMs: 10, code: 0 })
+
+    expect(aberto).toHaveBeenCalledWith({
+      jogoId: 'jogo-a',
+      inicioISO: '2026-01-01T00:00:00.000Z'
+    })
+    expect(sessoes[0].inicioISO).toBe('2026-01-01T00:00:00.000Z')
+  })
+
+  it('abrirSessao que rejeita não muda o { ok: true }', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { session, passos } = montar({
+      abrirSessao: async () => {
+        throw new Error('disco cheio')
+      }
+    })
+
+    await expect(session.lancar('jogo-a')).resolves.toEqual({ ok: true })
+    await Promise.resolve()
+
+    expect(erro).toHaveBeenCalled()
+    expect(passos).toEqual(['iniciar:jogo-a'])
+    expect(session.emExecucao()).toBe(true)
+    vi.restoreAllMocks()
+  })
+
+  it('abrirSessao que lança de forma síncrona não derruba o lançamento', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { session, passos } = montar({
+      abrirSessao: (() => {
+        throw new Error('boom')
+      }) as unknown as GameSessionDeps['abrirSessao']
+    })
+
+    await expect(session.lancar('jogo-a')).resolves.toEqual({ ok: true })
+
+    expect(erro).toHaveBeenCalled()
+    expect(passos).toEqual(['iniciar:jogo-a'])
+    expect(session.emExecucao()).toBe(true)
+    vi.restoreAllMocks()
+  })
+
+  it('abrirSessao que nunca resolve não atrasa o { ok: true }', async () => {
+    const aberto = vi.fn(() => new Promise<void>(() => {}))
+    const { session } = montar({ abrirSessao: aberto })
+
+    await expect(session.lancar('jogo-a')).resolves.toEqual({ ok: true })
+    expect(aberto).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('createGameSession — fim da Sessão', () => {
