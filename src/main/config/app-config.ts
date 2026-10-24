@@ -4,10 +4,12 @@ import { z } from 'zod'
 
 export const BUILD_SPREADSHEET_ID = import.meta.env.MAIN_VITE_SPREADSHEET_ID ?? ''
 export const BUILD_MEDIA_FOLDER_ID = import.meta.env.MAIN_VITE_MEDIA_FOLDER_ID ?? ''
+export const BUILD_ANALYTICS_SPREADSHEET_ID = import.meta.env.MAIN_VITE_ANALYTICS_SPREADSHEET_ID ?? ''
 
 const AppConfigOverrideSchema = z.object({
   spreadsheetId: z.string().min(1).optional(),
-  driveMediaFolderId: z.string().min(1).optional()
+  driveMediaFolderId: z.string().min(1).optional(),
+  analyticsSpreadsheetId: z.string().min(1).optional()
 })
 
 type AppConfigOverride = z.infer<typeof AppConfigOverrideSchema>
@@ -43,4 +45,10 @@ export async function resolveSpreadsheetId(baseDir: string): Promise<string> {
 export async function resolveMediaFolderId(baseDir: string): Promise<string> {
   const override = await readAppConfigOverride(baseDir)
   return override?.driveMediaFolderId ?? BUILD_MEDIA_FOLDER_ID
+}
+
+/** Vazio = não configurado; o analytics segue gravando local. */
+export async function resolveAnalyticsSpreadsheetId(baseDir: string): Promise<string> {
+  const override = await readAppConfigOverride(baseDir)
+  return override?.analyticsSpreadsheetId ?? BUILD_ANALYTICS_SPREADSHEET_ID
 }
