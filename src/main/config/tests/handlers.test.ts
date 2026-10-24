@@ -32,9 +32,9 @@ describe('handleConfigRoster', () => {
   })
 
   it('catálogo falho -> propaga o mesmo code (sem virar SETUP_* nem sumir)', async () => {
-    const falha: CommandResult<{ catalogo: Catalogo }> = { ok: false, code: 'CREDENCIAL_AUSENTE' }
+    const falha: CommandResult<{ catalogo: Catalogo }> = { ok: false, code: 'CATALOGO_INDISPONIVEL' }
     const result = await handleConfigRoster(async () => falha)
-    expect(result).toEqual({ ok: false, code: 'CREDENCIAL_AUSENTE' })
+    expect(result).toEqual({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
   })
 })
 

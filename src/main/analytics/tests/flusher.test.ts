@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { RegistroAnalytics } from '@shared/types'
-import { CredencialAusenteError } from '../../catalog/google-client'
 import type { AnalyticsSink } from '../../ports'
 import {
   createAnalyticsFlusher,
@@ -216,7 +215,6 @@ describe('createAnalyticsFlusher — falhas e backoff', () => {
 
   it.each([
     new AnalyticsNaoConfiguradoError(),
-    new CredencialAusenteError('sem credencial'),
     new Error('falha inesperada')
   ])('mapeia o erro de obterSink para o código certo (%s)', async (causa) => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -232,9 +230,7 @@ describe('createAnalyticsFlusher — falhas e backoff', () => {
     const esperado =
       causa instanceof AnalyticsNaoConfiguradoError
         ? 'ANALYTICS_NAO_CONFIGURADO'
-        : causa instanceof CredencialAusenteError
-          ? 'CREDENCIAL_AUSENTE'
-          : 'ANALYTICS_INDISPONIVEL'
+        : 'ANALYTICS_INDISPONIVEL'
 
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: false, code: esperado })
   })
@@ -244,13 +240,13 @@ describe('createAnalyticsFlusher — falhas e backoff', () => {
     const custom = sinkFake()
     const obterSink = vi
       .fn<() => Promise<AnalyticsSink>>()
-      .mockRejectedValueOnce(new CredencialAusenteError('sem credencial'))
+      .mockRejectedValueOnce(new AnalyticsNaoConfiguradoError())
       .mockResolvedValue(custom.sink)
     const { flusher } = montar({ pendentes: [registro('a')], over: { obterSink } })
 
     await expect(flusher.flushAgora()).resolves.toEqual({
       ok: false,
-      code: 'CREDENCIAL_AUSENTE'
+      code: 'ANALYTICS_NAO_CONFIGURADO'
     })
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 1, pendentes: 0 })
 

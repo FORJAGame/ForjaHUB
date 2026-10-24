@@ -20,17 +20,11 @@ import {
   type SessionRecorder,
   type SessionRecorderDeps
 } from '../session-recorder'
-import {
-  createSheetsAnalyticsSink,
-  type AnalyticsSheetsClient
-} from '../sheets-sink'
+import { createSupabaseAnalyticsSink } from '../supabase-sink'
 import { createAnalyticsSpool } from '../spool'
 import type { AnalyticsFlusher, AnalyticsSpool, InicioSessao } from '../types'
+import type { SessaoLinha, SessoesTable } from '../../supabase/client'
 
-type SheetsGet = AnalyticsSheetsClient['spreadsheets']['values']['get']
-type SheetsAppend = AnalyticsSheetsClient['spreadsheets']['values']['append']
-
-const TZ = 'America/Recife'
 const INICIO_BASE = '2026-01-01T12:00:00.000Z'
 
 const CONFIG: ConfigEstacao = {
@@ -40,43 +34,43 @@ const CONFIG: ConfigEstacao = {
   schemaVersion: 1
 }
 
-/** Só o "cliente Google" é fake: a planilha vive em memória. */
-interface PlanilhaFake {
-  linhas: (string | number)[][]
+/** Só o cliente Supabase é fake: a tabela `sessoes` vive em memória (PK id, ON CONFLICT DO NOTHING). */
+interface SessoesFake {
+  readonly linhas: SessaoLinha[]
   estado: { offline: boolean; falharDepoisDeAplicar: boolean }
-  sheets: AnalyticsSheetsClient
-  get: Mock<SheetsGet>
-  append: Mock<SheetsAppend>
+  tabela: SessoesTable
+  inserir: Mock<SessoesTable['inserir']>
 }
 
-function criarPlanilha(): PlanilhaFake {
-  const linhas: (string | number)[][] = []
+function criarSessoes(): SessoesFake {
+  const porId = new Map<string, SessaoLinha>()
   const estado = { offline: false, falharDepoisDeAplicar: false }
 
-  const get = vi.fn<SheetsGet>(async () => {
-    if (estado.offline) throw new Error('planilha offline')
-    return { data: { values: linhas.map((linha) => [String(linha[0])]) } }
-  })
-  const append = vi.fn<SheetsAppend>(async (params) => {
-    if (estado.offline) throw new Error('planilha offline')
-    for (const linha of params.requestBody.values) linhas.push([...linha])
+  const inserir = vi.fn<SessoesTable['inserir']>(async (linhas) => {
+    if (estado.offline) throw new Error('supabase offline')
+    for (const linha of linhas) {
+      if (!porId.has(linha.id)) porId.set(linha.id, { ...linha })
+    }
     // Aplicou no servidor e a resposta se perdeu no caminho.
     if (estado.falharDepoisDeAplicar) throw new Error('resposta perdida')
   })
 
-  return { linhas, estado, sheets: { spreadsheets: { values: { get, append } } }, get, append }
+  return {
+    get linhas() {
+      return [...porId.values()]
+    },
+    estado,
+    tabela: { inserir },
+    inserir
+  }
 }
 
 function criarFlusher(
   spool: Pick<AnalyticsSpool, 'pendentes' | 'confirmar'>,
-  planilha: PlanilhaFake,
+  sessoes: SessoesFake,
   over: Partial<AnalyticsFlusherDeps> = {}
 ): AnalyticsFlusher {
-  const sink = createSheetsAnalyticsSink({
-    sheets: planilha.sheets,
-    spreadsheetId: 'planilha-teste',
-    timeZone: TZ
-  })
+  const sink = createSupabaseAnalyticsSink(sessoes.tabela)
   return createAnalyticsFlusher({ spool, obterSink: async () => sink, ...over })
 }
 
@@ -147,57 +141,58 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
+describe('Sessão de Jogo vira exatamente uma linha na tabela sessoes', () => {
   it('1. offline → online: os 3 registros retidos chegam de uma vez, cada um 1×', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
-    const flusher = criarFlusher(spool, planilha)
+    const sessoes = criarSessoes()
+    const flusher = criarFlusher(spool, sessoes)
 
-    planilha.estado.offline = true
+    sessoes.estado.offline = true
     const ids: string[] = []
     for (let i = 0; i < 3; i++) ids.push((await sessaoFechada(spool)).id)
 
     for (let i = 0; i < 3; i++) {
       expect((await flusher.flushAgora()).ok).toBe(false)
     }
-    expect(planilha.linhas).toHaveLength(0)
+    expect(sessoes.linhas).toHaveLength(0)
     expect(await spool.pendentes()).toHaveLength(3)
 
-    planilha.estado.offline = false
+    sessoes.estado.offline = false
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 3, pendentes: 0 })
 
-    const naPlanilha = planilha.linhas.map((linha) => String(linha[0]))
-    expect(naPlanilha).toEqual(ids)
-    expect(new Set(naPlanilha).size).toBe(3)
+    const naTabela = sessoes.linhas.map((linha) => linha.id)
+    expect(naTabela).toEqual(ids)
+    expect(new Set(naTabela).size).toBe(3)
     expect(await spool.pendentes()).toEqual([])
     expect(new Set(lerIdsConfirmados(dir))).toEqual(new Set(ids))
   })
 
-  it('2. resposta perdida no append: o retry reconhece a linha aplicada e não duplica', async () => {
+  it('2. resposta perdida no insert: o retry reconhece a linha aplicada e não duplica', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
-    const flusher = criarFlusher(spool, planilha)
+    const sessoes = criarSessoes()
+    const flusher = criarFlusher(spool, sessoes)
     const { id } = await sessaoFechada(spool)
 
-    planilha.estado.falharDepoisDeAplicar = true
+    sessoes.estado.falharDepoisDeAplicar = true
     expect((await flusher.flushAgora()).ok).toBe(false)
-    expect(planilha.linhas).toHaveLength(1)
+    expect(sessoes.linhas).toHaveLength(1)
     expect(await spool.pendentes()).toHaveLength(1)
 
+    // A resposta se perdeu, mas a linha já estava gravada: o retry não duplica.
+    sessoes.estado.falharDepoisDeAplicar = false
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 1, pendentes: 0 })
 
-    expect(planilha.linhas).toHaveLength(1)
-    expect(planilha.linhas[0][0]).toBe(id)
-    expect(planilha.append).toHaveBeenCalledTimes(1)
+    expect(sessoes.linhas).toHaveLength(1)
+    expect(sessoes.linhas[0].id).toBe(id)
     expect(await spool.pendentes()).toEqual([])
   })
 
   it('3. confirmação perdida no disco: o segundo envio não duplica a linha', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
+    const sessoes = criarSessoes()
     let confirmacoes = 0
     const spoolInstavel = {
       pendentes: () => spool.pendentes(),
@@ -208,47 +203,45 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
           : spool.confirmar(ids)
       }
     }
-    const flusher = criarFlusher(spoolInstavel, planilha)
+    const flusher = criarFlusher(spoolInstavel, sessoes)
     const { id } = await sessaoFechada(spool)
 
     expect((await flusher.flushAgora()).ok).toBe(false)
-    expect(planilha.linhas).toHaveLength(1)
+    expect(sessoes.linhas).toHaveLength(1)
     expect(await spool.pendentes()).toHaveLength(1)
 
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 1, pendentes: 0 })
 
-    expect(planilha.linhas).toHaveLength(1)
-    expect(planilha.linhas[0][0]).toBe(id)
-    expect(planilha.append).toHaveBeenCalledTimes(1)
+    expect(sessoes.linhas).toHaveLength(1)
+    expect(sessoes.linhas[0].id).toBe(id)
     expect(await spool.pendentes()).toEqual([])
   })
 
-  it('4. Hub reinicia depois de confirmar: nada pendente e nenhuma chamada à Planilha', async () => {
+  it('4. Hub reinicia depois de confirmar: nada pendente e nenhuma chamada à tabela sessoes', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
+    const sessoes = criarSessoes()
     await sessaoFechada(spool)
-    await expect(criarFlusher(spool, planilha).flushAgora()).resolves.toEqual({
+    await expect(criarFlusher(spool, sessoes).flushAgora()).resolves.toEqual({
       ok: true,
       enviados: 1,
       pendentes: 0
     })
-    expect(planilha.linhas).toHaveLength(1)
+    expect(sessoes.linhas).toHaveLength(1)
 
     const spool2 = await createAnalyticsSpool({ dir })
     expect(await spool2.pendentes()).toEqual([])
 
-    const planilha2 = criarPlanilha()
-    const flusher2 = criarFlusher(spool2, planilha2)
+    const sessoes2 = criarSessoes()
+    const flusher2 = criarFlusher(spool2, sessoes2)
     await expect(flusher2.flushAgora()).resolves.toEqual({ ok: true, enviados: 0, pendentes: 0 })
-    expect(planilha2.get).not.toHaveBeenCalled()
-    expect(planilha2.append).not.toHaveBeenCalled()
+    expect(sessoes2.inserir).not.toHaveBeenCalled()
   })
 
   it('5. queda de energia com Jogo aberto: o marker vira 1 pendente incompleta', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
+    const sessoes = criarSessoes()
     let hora = new Date(INICIO_BASE)
     const recorder = criarRecorder(spool, { agora: () => hora })
 
@@ -273,11 +266,11 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
       incompleta: true
     })
 
-    await criarFlusher(spool2, planilha).flushAgora()
+    await criarFlusher(spool2, sessoes).flushAgora()
 
-    expect(planilha.linhas).toHaveLength(1)
-    expect(planilha.linhas[0][6]).toBe(120)
-    expect(planilha.linhas[0][7]).toBe('sim')
+    expect(sessoes.linhas).toHaveLength(1)
+    expect(sessoes.linhas[0].duracao_seg).toBe(120)
+    expect(sessoes.linhas[0].incompleta).toBe(true)
     expect(await spool2.pendentes()).toEqual([])
   })
 
@@ -291,10 +284,10 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
 
     const spool2 = await createAnalyticsSpool({ dir })
     const nova = await sessaoFechada(spool2)
-    const planilha = criarPlanilha()
-    await criarFlusher(spool2, planilha).flushAgora()
+    const sessoes = criarSessoes()
+    await criarFlusher(spool2, sessoes).flushAgora()
 
-    expect(planilha.linhas.map((linha) => String(linha[0]))).toEqual([valida.id, nova.id])
+    expect(sessoes.linhas.map((linha) => linha.id)).toEqual([valida.id, nova.id])
 
     const conteudo = readFileSync(join(dir, 'spool.jsonl'), 'utf-8')
     expect(conteudo).not.toContain('cortada')
@@ -309,8 +302,8 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
   it('7. troca de Evento no meio: cada Sessão leva o carimbo do seu início', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
-    const flusher = criarFlusher(spool, planilha)
+    const sessoes = criarSessoes()
+    const flusher = criarFlusher(spool, sessoes)
     let config: ConfigEstacao = { ...CONFIG }
     const recorder = criarRecorder(spool, { lerConfigEstacao: async () => config })
 
@@ -335,7 +328,9 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
     expect(ids).toHaveLength(2)
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 2, pendentes: 0 })
 
-    expect(planilha.linhas.map((linha) => [linha[0], linha[1], linha[2], linha[3]])).toEqual([
+    expect(
+      sessoes.linhas.map((linha) => [linha.id, linha.evento_id, linha.estacao_id, linha.jogo_id])
+    ).toEqual([
       [ids[0], 'ev-1', 'est-1', 'jogo-a'],
       [ids[1], 'ev-2', 'est-1', 'jogo-b']
     ])
@@ -344,22 +339,22 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
   it('8. compactação: o spool esvazia e as 4 linhas já confirmadas não voltam', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
-    const flusher = criarFlusher(spool, planilha)
+    const sessoes = criarSessoes()
+    const flusher = criarFlusher(spool, sessoes)
 
     for (let i = 0; i < 4; i++) await sessaoFechada(spool)
     await expect(flusher.flushAgora()).resolves.toEqual({ ok: true, enviados: 4, pendentes: 0 })
-    expect(planilha.linhas).toHaveLength(4)
+    expect(sessoes.linhas).toHaveLength(4)
 
     const spool2 = await createAnalyticsSpool({ dir, limiteCompactacao: 2 })
     expect(readFileSync(join(dir, 'spool.jsonl'), 'utf-8')).toBe('')
     expect(await spool2.pendentes()).toEqual([])
 
     await sessaoFechada(spool2)
-    await criarFlusher(spool2, planilha).flushAgora()
+    await criarFlusher(spool2, sessoes).flushAgora()
 
-    expect(planilha.linhas).toHaveLength(5)
-    const ids = planilha.linhas.map((linha) => String(linha[0]))
+    expect(sessoes.linhas).toHaveLength(5)
+    const ids = sessoes.linhas.map((linha) => linha.id)
     expect(new Set(ids).size).toBe(5)
   })
 
@@ -393,12 +388,8 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
       instalarJogo(base, 'jogo-ciclo')
 
       const spool = await createAnalyticsSpool({ dir })
-      const planilha = criarPlanilha()
-      const sink = createSheetsAnalyticsSink({
-        sheets: planilha.sheets,
-        spreadsheetId: 'planilha-teste',
-        timeZone: TZ
-      })
+      const sessoes = criarSessoes()
+      const sink = createSupabaseAnalyticsSink(sessoes.tabela)
       // Sinal do flush agendado pelo `aoRegistrar`, sem esperar por relógio real.
       const flushConcluido = Promise.withResolvers<void>()
       const flusher = createAnalyticsFlusher({
@@ -433,13 +424,13 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
       // Se o `confirmar` ainda estiver em voo, esta chamada compartilha a promessa.
       await flusher.flushAgora()
 
-      expect(planilha.linhas).toHaveLength(1)
-      const linha = planilha.linhas[0]
-      expect(linha[3]).toBe('jogo-ciclo')
-      expect(linha[2]).toBe('est-1')
-      expect(linha[1]).toBe('ev-1')
-      expect(Number(linha[6])).toBeGreaterThanOrEqual(0)
-      expect(Number(linha[6])).toBeLessThanOrEqual(2)
+      expect(sessoes.linhas).toHaveLength(1)
+      const linha = sessoes.linhas[0]
+      expect(linha.jogo_id).toBe('jogo-ciclo')
+      expect(linha.estacao_id).toBe('est-1')
+      expect(linha.evento_id).toBe('ev-1')
+      expect(linha.duracao_seg).toBeGreaterThanOrEqual(0)
+      expect(linha.duracao_seg).toBeLessThanOrEqual(2)
       expect(await spool.pendentes()).toEqual([])
       expect(existsSync(join(dir, 'open-session.json'))).toBe(false)
     })
@@ -448,7 +439,7 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
   it('10. quit com Jogo aberto: fecha incompleta com a duração do relógio monotônico', async () => {
     const dir = tmpDir()
     const spool = await createAnalyticsSpool({ dir })
-    const planilha = criarPlanilha()
+    const sessoes = criarSessoes()
     let relogio = 0
     const recorder = criarRecorder(spool, { relogioMs: () => relogio })
 
@@ -461,8 +452,8 @@ describe('Sessão de Jogo vira exatamente uma linha na Planilha', () => {
     expect(pendentes[0]).toMatchObject({ duracaoSeg: 45, incompleta: true })
     expect(existsSync(join(dir, 'open-session.json'))).toBe(false)
 
-    await criarFlusher(spool, planilha).flushAgora()
-    expect(planilha.linhas).toHaveLength(1)
-    expect(planilha.linhas[0][7]).toBe('sim')
+    await criarFlusher(spool, sessoes).flushAgora()
+    expect(sessoes.linhas).toHaveLength(1)
+    expect(sessoes.linhas[0].incompleta).toBe(true)
   })
 })

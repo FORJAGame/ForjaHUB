@@ -26,9 +26,9 @@ export interface AnalyticsFlusher {
   parar(): void
 }
 
-/** ID da Planilha de Analytics ausente no build e no `app-config.json`. */
+/** URL ou anon key do Supabase ausentes no build e no `app-config.json`. */
 export class AnalyticsNaoConfiguradoError extends Error {
-  constructor(motivo = 'analyticsSpreadsheetId não configurado') {
+  constructor(motivo = 'Supabase não configurado (URL ou anon key ausente)') {
     super(motivo)
     this.name = 'AnalyticsNaoConfiguradoError'
   }

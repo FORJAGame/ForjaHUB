@@ -20,8 +20,7 @@ const ERROR_COPY: Record<string, string> = {
   ROSTER_INDISPONIVEL: 'Não foi possível carregar o roster agora. Tente de novo.',
   CATALOGO_INDISPONIVEL: 'Não foi possível baixar o Catálogo agora. Verifique a rede e tente de novo.',
   CATALOGO_NAO_CONFIGURADO: 'Catálogo não configurado nesta Estação. Fale com o Operador.',
-  CATALOGO_INVALIDO: 'A Planilha de Catálogo tem uma linha inválida. Fale com o Operador.',
-  CREDENCIAL_AUSENTE: 'Credencial do Catálogo ausente nesta Estação. Fale com o Operador.',
+  CATALOGO_INVALIDO: 'O Catálogo tem um Jogo inválido. Fale com o Operador.',
   MIDIA_INDISPONIVEL: 'Não foi possível baixar a mídia do Catálogo agora. Verifique a rede e tente de novo.'
 }
 

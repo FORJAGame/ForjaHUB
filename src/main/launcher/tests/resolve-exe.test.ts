@@ -55,7 +55,7 @@ describe('resolveGameExe — exeRelativo preenchido', () => {
     )
   })
 
-  it('aceita separador do Windows (`\\`) na Planilha', async () => {
+  it('aceita separador do Windows (`\\`) no `exe_relativo`', async () => {
     const base = baseDir()
     const raiz = raizDoJogo(base, 'jogo-a')
     const alvo = exe(raiz, 'bin/Jogo.sh')

@@ -2,17 +2,20 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 
-export const BUILD_SPREADSHEET_ID = import.meta.env.MAIN_VITE_SPREADSHEET_ID ?? ''
-export const BUILD_MEDIA_FOLDER_ID = import.meta.env.MAIN_VITE_MEDIA_FOLDER_ID ?? ''
-export const BUILD_ANALYTICS_SPREADSHEET_ID = import.meta.env.MAIN_VITE_ANALYTICS_SPREADSHEET_ID ?? ''
+export const BUILD_SUPABASE_URL = import.meta.env.MAIN_VITE_SUPABASE_URL ?? ''
+export const BUILD_SUPABASE_ANON_KEY = import.meta.env.MAIN_VITE_SUPABASE_ANON_KEY ?? ''
 
 const AppConfigOverrideSchema = z.object({
-  spreadsheetId: z.string().min(1).optional(),
-  driveMediaFolderId: z.string().min(1).optional(),
-  analyticsSpreadsheetId: z.string().min(1).optional()
+  supabaseUrl: z.string().min(1).optional(),
+  supabaseAnonKey: z.string().min(1).optional()
 })
 
 type AppConfigOverride = z.infer<typeof AppConfigOverrideSchema>
+
+export interface SupabaseConfig {
+  url: string
+  anonKey: string
+}
 
 export function appConfigPath(baseDir: string): string {
   return join(baseDir, 'config', 'app-config.json')
@@ -37,18 +40,13 @@ async function readAppConfigOverride(baseDir: string): Promise<AppConfigOverride
   return result.success ? result.data : null
 }
 
-export async function resolveSpreadsheetId(baseDir: string): Promise<string> {
+/**
+ * Cada campo do `app-config.json` sobrepõe o do build isoladamente.
+ * `null` = URL ou chave ausente: catálogo não sincroniza e o analytics segue só no disco.
+ */
+export async function resolveSupabaseConfig(baseDir: string): Promise<SupabaseConfig | null> {
   const override = await readAppConfigOverride(baseDir)
-  return override?.spreadsheetId ?? BUILD_SPREADSHEET_ID
-}
-
-export async function resolveMediaFolderId(baseDir: string): Promise<string> {
-  const override = await readAppConfigOverride(baseDir)
-  return override?.driveMediaFolderId ?? BUILD_MEDIA_FOLDER_ID
-}
-
-/** Vazio = não configurado; o analytics segue gravando local. */
-export async function resolveAnalyticsSpreadsheetId(baseDir: string): Promise<string> {
-  const override = await readAppConfigOverride(baseDir)
-  return override?.analyticsSpreadsheetId ?? BUILD_ANALYTICS_SPREADSHEET_ID
+  const url = override?.supabaseUrl ?? BUILD_SUPABASE_URL
+  const anonKey = override?.supabaseAnonKey ?? BUILD_SUPABASE_ANON_KEY
+  return url && anonKey ? { url, anonKey } : null
 }

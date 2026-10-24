@@ -148,11 +148,11 @@ describe('bootCatalog', () => {
   it('sync falha DENTRO do budget + sem Cache -> devolve a falha original', async () => {
     vi.useFakeTimers()
 
-    const sync = vi.fn().mockResolvedValue({ ok: false, code: 'CREDENCIAL_AUSENTE' } satisfies Result)
+    const sync = vi.fn().mockResolvedValue({ ok: false, code: 'CATALOGO_INDISPONIVEL' } satisfies Result)
     const readCache = vi.fn().mockResolvedValue(null)
 
     const result = await bootCatalog('/base', { sync, readCache })
 
-    expect(result).toEqual({ ok: false, code: 'CREDENCIAL_AUSENTE' })
+    expect(result).toEqual({ ok: false, code: 'CATALOGO_INDISPONIVEL' })
   })
 })

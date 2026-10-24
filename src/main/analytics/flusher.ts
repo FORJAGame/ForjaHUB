@@ -1,5 +1,4 @@
 import type { RegistroAnalytics } from '@shared/types'
-import { CredencialAusenteError } from '../catalog/google-client'
 import type { AnalyticsSink } from '../ports'
 import {
   AnalyticsNaoConfiguradoError,
@@ -10,13 +9,6 @@ import {
 
 const ERRO_INDISPONIVEL = 'ANALYTICS_INDISPONIVEL'
 const ERRO_NAO_CONFIGURADO = 'ANALYTICS_NAO_CONFIGURADO'
-const ERRO_CREDENCIAL_AUSENTE = 'CREDENCIAL_AUSENTE'
-
-function codigoDoErro(err: unknown): string {
-  if (err instanceof AnalyticsNaoConfiguradoError) return ERRO_NAO_CONFIGURADO
-  if (err instanceof CredencialAusenteError) return ERRO_CREDENCIAL_AUSENTE
-  return ERRO_INDISPONIVEL
-}
 
 export interface AnalyticsFlusherDeps {
   spool: Pick<AnalyticsSpool, 'pendentes' | 'confirmar'>
@@ -64,7 +56,7 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     timer = t
   }
 
-  // Memoiza só no sucesso: sem Planilha/credencial, a próxima tentativa resolve de novo.
+  // Memoiza só no sucesso: sem configuração do Supabase, a próxima tentativa resolve de novo.
   function obterSink(): Promise<AnalyticsSink> {
     if (sinkEmCache) return sinkEmCache
     const tentativa = (async () => deps.obterSink())()
@@ -121,7 +113,8 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     try {
       sink = await obterSink()
     } catch (err) {
-      return registrarFalha(codigoDoErro(err), err)
+      const code = err instanceof AnalyticsNaoConfiguradoError ? ERRO_NAO_CONFIGURADO : ERRO_INDISPONIVEL
+      return registrarFalha(code, err)
     }
 
     const lote = pendentes.slice(0, loteMax)

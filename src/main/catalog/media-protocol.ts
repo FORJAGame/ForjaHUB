@@ -45,7 +45,7 @@ export async function resolveMediaAsset(
   tipo: string
 ): Promise<ResolvedMediaAsset | null> {
   if (!KEBAB_CASE_RE.test(id) || !TIPO_RE.test(tipo)) return null
-  // `qr` não é arquivo do Drive: quem responde essa rota é o gerador de PNG.
+  // `qr` não é arquivo do bucket de mídia: quem responde essa rota é o gerador de PNG.
   if (tipo === 'qr') return null
 
   const jogoDir = join(mediaBaseDir, id)

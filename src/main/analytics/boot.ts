@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import type { ConfigEstacao } from '@shared/types'
 import { createAnalyticsFlusher } from './flusher'
 import { createSessionRecorder, type SessionRecorder } from './session-recorder'
-import { criarSinkPadrao } from './sheets-sink'
+import { criarSinkPadrao } from './supabase-sink'
 import { createAnalyticsSpool } from './spool'
 import type { AnalyticsFlusher, AnalyticsSpool } from './types'
 

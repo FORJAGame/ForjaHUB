@@ -7,12 +7,12 @@ import type {
   RegistroAnalytics
 } from '@shared/types'
 
-/* Fonte do Catálogo: Google Sheets API + Drive API */
+/* Fonte do Catálogo: tabela `jogos` + bucket `midia` do Supabase */
 export interface CatalogSource {
   sync(jogosSelecionados: string[]): Promise<CommandResult<{ catalogo: Catalogo }>>
 }
 
-/* Distribuição de builds — zip por `id` na pasta Drive `builds/`. */
+/* Distribuição de builds — zip por `id` no Storage do Supabase. */
 export interface GameBinarySource {
   sync(jogos: Jogo[]): Promise<Array<{ jogoId: string; buildStatus: BuildStatus }>>
 }

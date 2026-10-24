@@ -24,7 +24,7 @@ describe('JogoSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('coage ano vindo como string da Planilha', () => {
+  it('coage ano vindo como string (ex.: JSON legado)', () => {
     const result = JogoSchema.safeParse(jogoValido({ ano: '2019' }))
     expect(result.success).toBe(true)
     if (result.success) {
@@ -121,8 +121,8 @@ function soMetadados(overrides: Partial<Record<string, unknown>> = {}): Record<s
   return jogo
 }
 
-describe('JogoMetadataSchema (linha da Planilha, sem mídia)', () => {
-  it('aceita metadados sem detalheImagens — mídia é descoberta à parte via Drive', () => {
+describe('JogoMetadataSchema (linha da tabela jogos, sem mídia)', () => {
+  it('aceita metadados sem detalheImagens — mídia é descoberta à parte no bucket de mídia', () => {
     expect(JogoMetadataSchema.safeParse(soMetadados()).success).toBe(true)
   })
 

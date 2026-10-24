@@ -38,7 +38,7 @@ describe('bootAnalytics', () => {
     expect(readFileSync(join(dir, 'spool.jsonl'), 'utf-8')).toBe('{"cortado"')
   })
 
-  it('Sessão fechada pelo recorder montado vira pendente e agenda um envio; sem Planilha configurada ele falha sem lançar', async () => {
+  it('Sessão fechada pelo recorder montado vira pendente e agenda um envio; sem Supabase configurado ele falha sem lançar', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
     try {

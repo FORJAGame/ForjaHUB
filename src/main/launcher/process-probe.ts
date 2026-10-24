@@ -9,7 +9,7 @@ export type ProcessProbe = (nome: string) => Promise<boolean>
 
 const PROBE_TIMEOUT_MS = 4000
 
-// processo_alvo` vem da Planilha de Catálogo.
+// `processo_alvo` vem do Catálogo.
 // Normaliza e rejeita o que não for um nome de arquivo executável plausível.
 export function sanitizeProcessName(bruto: string): string | null {
   const nome = bruto.trim()
