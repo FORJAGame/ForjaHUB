@@ -51,7 +51,8 @@ export function createSupabaseClients(config: SupabaseConfig): SupabaseClients {
   return {
     jogos: {
       async listar() {
-        const { data, error } = await supabase.from('jogos').select('*')
+        // Spread da FK: cada linha traz `estudio` (nome) no topo, ao lado das colunas de `jogos`.
+        const { data, error } = await supabase.from('jogos').select('*, ...estudios(estudio:nome)')
         if (error) throw new Error(`jogos: ${error.message}`)
         return data
       }

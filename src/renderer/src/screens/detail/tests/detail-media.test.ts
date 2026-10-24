@@ -7,7 +7,7 @@ function jogo(over: Partial<Jogo> = {}): Jogo {
     id: 'pancada',
     titulo: 'Pancada',
     ano: 2025,
-    guilda: 'FORJA',
+    estudio: 'FORJA',
     genero: 'Luta',
     modalidade: 'multiplayer',
     sinopse: 'Uma sinopse.',

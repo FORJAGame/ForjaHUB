@@ -42,7 +42,7 @@ export const JogoMetadataSchema = z.object({
     .regex(KEBAB_CASE_RE, 'id deve ser kebab-case (dono é o Catálogo, nunca derivado do título)'),
   titulo: z.string().trim().min(1),
   ano: z.coerce.number().int().min(1970).max(2100),
-  guilda: z.string().trim().min(1),
+  estudio: z.string().trim().min(1),
   genero: z.string().trim().min(1),
   modalidade: z.enum(MODALIDADES),
   sinopse: z.string().trim().min(1),

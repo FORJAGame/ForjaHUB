@@ -7,7 +7,7 @@ function jogoValido(overrides: Partial<Record<string, unknown>> = {}): Record<st
     id: 'jogo-a',
     titulo: 'Jogo A',
     ano: 2024,
-    guilda: 'Guilda A',
+    estudio: 'Estúdio A',
     genero: 'Aventura',
     modalidade: 'single-player',
     sinopse: 'Uma sinopse qualquer.',
@@ -66,8 +66,8 @@ describe('JogoSchema', () => {
     expect(JogoSchema.safeParse(jogoValido({ ano: 1800 })).success).toBe(false)
   })
 
-  it('rejeita titulo/sinopse/guilda/genero vazios', () => {
-    for (const campo of ['titulo', 'sinopse', 'guilda', 'genero']) {
+  it('rejeita titulo/sinopse/estudio/genero vazios', () => {
+    for (const campo of ['titulo', 'sinopse', 'estudio', 'genero']) {
       expect(JogoSchema.safeParse(jogoValido({ [campo]: '' })).success).toBe(false)
     }
   })
@@ -86,7 +86,7 @@ describe('JogoSchema', () => {
     if (result.success) expect(result.data.redesUrl).toBe('https://exemplo.com/jogo-a')
   })
 
-  it.each(['id', 'titulo', 'guilda', 'genero', 'sinopse', 'exeRelativo'] as const)(
+  it.each(['id', 'titulo', 'estudio', 'genero', 'sinopse', 'exeRelativo'] as const)(
     'trima espaço em volta do campo %s',
     (campo) => {
       const bruto = campo === 'exeRelativo' ? '  Jogo.exe  ' : `  valor-${campo}  `

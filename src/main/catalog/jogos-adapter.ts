@@ -10,11 +10,12 @@ export class CatalogoInvalidoError extends Error {
 }
 
 // Coluna da tabela `jogos` -> campo do Jogo; colunas fora daqui (ex.: `criado_em`) são ignoradas.
+// `estudio` não é coluna de `jogos`: o select achata o nome do estúdio da FK (`...estudios(estudio:nome)`).
 const COLUNAS: Record<string, keyof JogoMetadata> = {
   id: 'id',
   titulo: 'titulo',
   ano: 'ano',
-  guilda: 'guilda',
+  estudio: 'estudio',
   genero: 'genero',
   modalidade: 'modalidade',
   sinopse: 'sinopse',

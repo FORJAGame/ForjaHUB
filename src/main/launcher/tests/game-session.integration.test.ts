@@ -12,7 +12,7 @@ function jogo(id: string, exeRelativo = ''): Jogo {
     id,
     titulo: id,
     ano: 2026,
-    guilda: 'FORJA',
+    estudio: 'FORJA',
     genero: 'ação',
     modalidade: 'single-player',
     sinopse: 'sinopse',

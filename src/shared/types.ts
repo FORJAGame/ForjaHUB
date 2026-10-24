@@ -66,7 +66,8 @@ export interface Jogo {
   id: string
   titulo: string
   ano: number
-  guilda: string //estudio
+  /** Nome do estúdio (Game Studio) dono do Jogo, vindo da tabela `estudios`. */
+  estudio: string
   genero: string
   modalidade: Modalidade
   sinopse: string

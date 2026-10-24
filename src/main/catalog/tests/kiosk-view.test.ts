@@ -8,7 +8,7 @@ function jogo(id: string): Jogo {
     id,
     titulo: id.toUpperCase(),
     ano: 2025,
-    guilda: 'Guilda',
+    estudio: 'Estúdio',
     genero: 'Ação',
     modalidade: 'single-player',
     sinopse: '',

@@ -106,7 +106,7 @@ export default function DetailScreen({ jogo, versao, ocupado, onBack, onPlay }: 
           <div className="flex min-w-0 flex-col">
             <h1 className="text-heading m-0 line-clamp-2 text-ink-primary">{jogo.titulo}</h1>
             <p className="text-meta mt-2 mb-0 text-ink-secondary">
-              {jogo.ano} • {jogo.guilda}
+              {jogo.ano} • {jogo.estudio}
             </p>
             <span className="text-pill mt-3.5 self-start rounded-chip border border-border-hairline px-3 py-1 text-ink-secondary">
               {jogo.genero}
@@ -122,7 +122,7 @@ export default function DetailScreen({ jogo, versao, ocupado, onBack, onPlay }: 
             </div>
           </Celula>
           <Celula rotulo="ANO">{jogo.ano}</Celula>
-          <Celula rotulo="GUILDA">{jogo.guilda}</Celula>
+          <Celula rotulo="ESTÚDIO">{jogo.estudio}</Celula>
         </div>
 
         <button
@@ -144,7 +144,7 @@ export default function DetailScreen({ jogo, versao, ocupado, onBack, onPlay }: 
         </div>
 
         <div className="text-meta border-t border-border-hairline pt-4 text-ink-secondary">
-          Créditos: {jogo.guilda}
+          Créditos: {jogo.estudio}
         </div>
       </div>
 

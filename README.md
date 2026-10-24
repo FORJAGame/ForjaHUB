@@ -59,7 +59,7 @@ O que já está implementado e testado:
   com escrita atômica. Se nenhum Jogo selecionado existir mais no catálogo,
   o Hub volta para o setup.
 - **Tela de catálogo (kiosk)**: vitrine com arte-herói do Jogo em foco, logo
-  com fallback para o título, chips de ano, guilda e gênero, e uma fileira
+  com fallback para o título, chips de ano, estúdio e gênero, e uma fileira
   rolável de cards com navegação circular (o foco dá a volta), por controle,
   teclado ou mouse, com faíscas e um clique sonoro sintetizado a cada troca de
   foco. Só os Jogos selecionados na estação aparecem.
@@ -110,17 +110,20 @@ Catálogo, mídia e analytics vivem num projeto Supabase. O schema está em
 `npx supabase db push` no projeto (ou cole o SQL no SQL Editor).
 
 - **`jogos`**: uma linha por Jogo. Colunas `id` (kebab-case, chave),
-  `titulo`, `ano`, `guilda`, `genero`, `modalidade` (`single-player` ou
+  `titulo`, `ano`, `estudio_id`, `genero`, `modalidade` (`single-player` ou
   `multiplayer`), `sinopse`, `redes_url` e `exe_relativo` (os dois últimos
   aceitam vazio). O Catálogo sai ordenado por `id`. A anon key só enxerga
   linhas com `publicado = true`: rascunhos sem mídia completa não derrubam o
   sync das estações.
+- **`estudios`**: o estúdio (Game Studio) de cada Jogo. O Hub lê só o `nome`,
+  achatado na consulta de `jogos` como campo `estudio`; é o crédito mostrado
+  na vitrine e no detalhe.
 - **Bucket `midia`**: uma pasta por Jogo com o nome do `id`, contendo
   `capa.*`, `hero.*`, `logo.*` e ao menos um `detalhe-N.*`.
 - **`sessoes`**: recebe o analytics (veja abaixo).
 
 O Hub usa só a **anon key**, e grants + RLS limitam o que ela faz: ler
-`jogos` publicados e a mídia, e gravar Sessões pela função `registrar_sessoes`
+`jogos` publicados, o nome dos estúdios e a mídia, e gravar Sessões pela função `registrar_sessoes`
 (sem ler, alterar ou apagar `sessoes`). Jogos, mídia e builds (bucket privado
 `builds`) são cadastrados pelo portal de cadastro (projeto `forjagames`), com
 service role no servidor, nunca com a chave das estações.

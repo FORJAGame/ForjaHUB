@@ -21,7 +21,7 @@ const METADATA_A: JogoMetadata = {
   id: 'jogo-a',
   titulo: 'Jogo A',
   ano: 2024,
-  guilda: 'Guilda A',
+  estudio: 'Estúdio A',
   genero: 'Aventura',
   modalidade: 'single-player',
   sinopse: 'Sinopse.',
