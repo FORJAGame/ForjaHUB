@@ -112,17 +112,18 @@ Catálogo, mídia e analytics vivem num projeto Supabase. O schema está em
 - **`jogos`**: uma linha por Jogo. Colunas `id` (kebab-case, chave),
   `titulo`, `ano`, `guilda`, `genero`, `modalidade` (`single-player` ou
   `multiplayer`), `sinopse`, `redes_url` e `exe_relativo` (os dois últimos
-  aceitam vazio). O Catálogo sai ordenado por `id`.
+  aceitam vazio). O Catálogo sai ordenado por `id`. A anon key só enxerga
+  linhas com `publicado = true`: rascunhos sem mídia completa não derrubam o
+  sync das estações.
 - **Bucket `midia`**: uma pasta por Jogo com o nome do `id`, contendo
   `capa.*`, `hero.*`, `logo.*` e ao menos um `detalhe-N.*`.
 - **`sessoes`**: recebe o analytics (veja abaixo).
 
 O Hub usa só a **anon key**, e grants + RLS limitam o que ela faz: ler
-`jogos` e a mídia, e gravar Sessões pela função `registrar_sessoes` (sem
-ler, alterar ou apagar `sessoes`). Quem cadastra
-Jogos e sobe mídia usa outra credencial (painel do Supabase, service role
-num backend ou usuário autenticado com policy própria), nunca a chave das
-estações.
+`jogos` publicados e a mídia, e gravar Sessões pela função `registrar_sessoes`
+(sem ler, alterar ou apagar `sessoes`). Jogos, mídia e builds (bucket privado
+`builds`) são cadastrados pelo portal de cadastro (projeto `forjagames`), com
+service role no servidor, nunca com a chave das estações.
 
 A URL e a anon key vão em `MAIN_VITE_SUPABASE_URL` e
 `MAIN_VITE_SUPABASE_ANON_KEY` no `.env`, ou em `supabaseUrl` e
