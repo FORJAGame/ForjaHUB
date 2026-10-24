@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CredencialAusenteError,
   loadServiceAccountCredentials,
+  wrapAnalyticsSheetsClient,
   wrapDriveClient,
   wrapSheetsClient,
   type RawDriveClient,
@@ -25,7 +26,7 @@ afterEach(() => {
 describe('wrapSheetsClient (mapeamento de resposta, sem SDK/rede real)', () => {
   it('repassa spreadsheetId/range pro client bruto e devolve os values como vieram', async () => {
     const get = vi.fn().mockResolvedValue({ data: { values: [['a', 'b']] } })
-    const raw: RawSheetsClient = { spreadsheets: { values: { get } } }
+    const raw: RawSheetsClient = { spreadsheets: { values: { get, append: vi.fn() } } }
 
     const sheets = wrapSheetsClient(raw)
     const res = await sheets.spreadsheets.values.get({ spreadsheetId: 'sheet-1', range: 'A1:Z1000' })
@@ -35,7 +36,9 @@ describe('wrapSheetsClient (mapeamento de resposta, sem SDK/rede real)', () => {
   })
 
   it('res.data.values ausente (undefined) -> mapeia pra null, não undefined', async () => {
-    const raw: RawSheetsClient = { spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: {} }) } } }
+    const raw: RawSheetsClient = {
+      spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: {} }), append: vi.fn() } }
+    }
     const sheets = wrapSheetsClient(raw)
     const res = await sheets.spreadsheets.values.get({ spreadsheetId: 'sheet-1', range: 'A1:Z1000' })
     expect(res).toEqual({ data: { values: null } })
@@ -43,7 +46,9 @@ describe('wrapSheetsClient (mapeamento de resposta, sem SDK/rede real)', () => {
 
   it('res.data.values null -> continua null', async () => {
     const raw: RawSheetsClient = {
-      spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: { values: null } }) } }
+      spreadsheets: {
+        values: { get: vi.fn().mockResolvedValue({ data: { values: null } }), append: vi.fn() }
+      }
     }
     const sheets = wrapSheetsClient(raw)
     const res = await sheets.spreadsheets.values.get({ spreadsheetId: 'sheet-1', range: 'A1:Z1000' })
@@ -52,11 +57,42 @@ describe('wrapSheetsClient (mapeamento de resposta, sem SDK/rede real)', () => {
 
   it('planilha vazia (só header, sem linhas) -> array vazio passa direto', async () => {
     const raw: RawSheetsClient = {
-      spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: { values: [] } }) } }
+      spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: { values: [] } }), append: vi.fn() } }
     }
     const sheets = wrapSheetsClient(raw)
     const res = await sheets.spreadsheets.values.get({ spreadsheetId: 'sheet-1', range: 'A1:Z1000' })
     expect(res).toEqual({ data: { values: [] } })
+  })
+})
+
+describe('wrapAnalyticsSheetsClient (mapeamento de resposta, sem SDK/rede real)', () => {
+  it('append repassa os params exatos (planilha e faixa inclusas)', async () => {
+    const append = vi.fn().mockResolvedValue({ data: {} })
+    const raw: RawSheetsClient = { spreadsheets: { values: { get: vi.fn(), append } } }
+    const params = {
+      spreadsheetId: 'sheet-1',
+      range: 'Analytics!A:H',
+      valueInputOption: 'RAW' as const,
+      insertDataOption: 'INSERT_ROWS' as const,
+      requestBody: { values: [['id-1', 90]] }
+    }
+
+    await wrapAnalyticsSheetsClient(raw).spreadsheets.values.append(params)
+
+    expect(append).toHaveBeenCalledWith(params)
+  })
+
+  it('get com res.data.values ausente -> null', async () => {
+    const raw: RawSheetsClient = {
+      spreadsheets: { values: { get: vi.fn().mockResolvedValue({ data: {} }), append: vi.fn() } }
+    }
+
+    const res = await wrapAnalyticsSheetsClient(raw).spreadsheets.values.get({
+      spreadsheetId: 'sheet-1',
+      range: 'Analytics!A2:A'
+    })
+
+    expect(res).toEqual({ data: { values: null } })
   })
 })
 

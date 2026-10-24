@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { google } from 'googleapis'
+import type { AnalyticsSheetsClient } from '../analytics/sheets-sink'
 import type { SheetsValuesClient } from './sheets-adapter'
 
 // Credencial da Service Account. (provisionada fora do app, nunca no bundle/git).
@@ -15,9 +16,10 @@ interface ServiceAccountCredentials {
   private_key: string
 }
 
-// Escopo Sheets+Drive juntos num cliente só
+// Escopos do Catálogo (Drive) + escrita na Planilha de Analytics. A
+// autoridade real continua limitada ao que for compartilhado com a service account.
 const SCOPES = [
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/drive.readonly'
 ]
 
@@ -47,15 +49,23 @@ export async function loadServiceAccountCredentials(
 
 export interface GoogleClients {
   sheets: SheetsValuesClient
+  analyticsSheets: AnalyticsSheetsClient
   drive: DriveMediaClient
 }
 
-// Superfície mínima do `sheets_v4.Sheets` real que `wrapSheetsClient`
-// precisa receber, não o SDK inteiro.
+// Superfície mínima do `sheets_v4.Sheets` real que os wrappers abaixo
+// precisam receber, não o SDK inteiro.
 export interface RawSheetsClient {
   spreadsheets: {
     values: {
       get(params: { spreadsheetId: string; range: string }): Promise<{ data: { values?: unknown } }>
+      append(params: {
+        spreadsheetId: string
+        range: string
+        valueInputOption: 'RAW'
+        insertDataOption: 'INSERT_ROWS'
+        requestBody: { values: (string | number)[][] }
+      }): Promise<unknown>
     }
   }
 }
@@ -68,6 +78,20 @@ export function wrapSheetsClient(raw: RawSheetsClient): SheetsValuesClient {
           const res = await raw.spreadsheets.values.get(params)
           return { data: { values: (res.data.values as string[][] | undefined | null) ?? null } }
         }
+      }
+    }
+  }
+}
+
+export function wrapAnalyticsSheetsClient(raw: RawSheetsClient): AnalyticsSheetsClient {
+  return {
+    spreadsheets: {
+      values: {
+        get: async (params) => {
+          const res = await raw.spreadsheets.values.get(params)
+          return { data: { values: (res.data.values as string[][] | undefined | null) ?? null } }
+        },
+        append: async (params) => raw.spreadsheets.values.append(params)
       }
     }
   }
@@ -143,8 +167,11 @@ export function createGoogleClient(creds: ServiceAccountCredentials): GoogleClie
     key: creds.private_key,
     scopes: SCOPES
   })
+  // Um único cliente Sheets/auth pros dois consumidores: mesma cota e credencial.
+  const sheets = google.sheets({ version: 'v4', auth })
   return {
-    sheets: wrapSheetsClient(google.sheets({ version: 'v4', auth })),
+    sheets: wrapSheetsClient(sheets),
+    analyticsSheets: wrapAnalyticsSheetsClient(sheets),
     drive: wrapDriveClient(google.drive({ version: 'v3', auth }))
   }
 }
