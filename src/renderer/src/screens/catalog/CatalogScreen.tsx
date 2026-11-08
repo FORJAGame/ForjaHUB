@@ -2,9 +2,10 @@ import { type JSX, type ReactNode, useState } from 'react'
 import type { Catalogo } from '@shared/types'
 import { mediaUrl } from '@shared/media'
 import { FORJA_MARK_URL } from '../../design/assets'
-import { FallbackImage, ForjaMark, GrainOverlay, Stage } from '../../design/primitives'
+import { FallbackImage, ForjaMark, GrainOverlay, PromptBar, Stage } from '../../design/primitives'
 import { moveFocus } from '../../input/focus'
 import { useInputIntents } from '../../input/hooks/use-input-intents'
+import type { PromptSet } from '../../input/prompts'
 import { playFocusClick } from '../../sfx'
 import GameCard from './GameCard'
 import { CARD_WIDTH_PX, FOCUS_BLEED_PX, ROW_VISIBLE, rowOffset } from './row-layout'
@@ -13,6 +14,7 @@ interface CatalogScreenProps {
   /** Nunca vazio neste mode. */
   catalogo: Catalogo
   focusedGameId: string
+  prompts: PromptSet
   onFocusGame: (id: string) => void
   onConfirm: () => void
 }
@@ -29,6 +31,7 @@ function MetaChip({ children }: { children: ReactNode }): JSX.Element {
 export default function CatalogScreen({
   catalogo,
   focusedGameId,
+  prompts,
   onFocusGame,
   onConfirm
 }: CatalogScreenProps): JSX.Element {
@@ -145,6 +148,15 @@ export default function CatalogScreen({
           ))}
         </div>
       </div>
+
+      <PromptBar
+        set={prompts}
+        itens={[
+          { acao: 'navegar', rotulo: 'Navegar' },
+          { acao: 'confirmar', rotulo: 'Detalhes' }
+        ]}
+        className="absolute bottom-3 right-screen-margin z-30"
+      />
     </Stage>
   )
 }

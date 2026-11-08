@@ -1,4 +1,11 @@
-import { MODES, type Catalogo, type KioskState, type Mode } from '@shared/types'
+import {
+  CONTROLE_PROMPTS_PADRAO,
+  MODES,
+  type Catalogo,
+  type ControlePrompts,
+  type KioskState,
+  type Mode
+} from '@shared/types'
 
 /**
  * Máquina de estados.
@@ -11,14 +18,21 @@ export const initialState: KioskState = {
   errorPlate: null,
   controllerConnected: false,
   catalogo: null,
-  focusedGameId: null
+  focusedGameId: null,
+  controlePrompts: CONTROLE_PROMPTS_PADRAO
 }
 
 export type Action =
   | { type: 'set-mode'; mode: Mode }
   | { type: 'error-plate'; code: string | null }
   | { type: 'controller'; connected: boolean }
-  | { type: 'hydrated'; mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }
+  | {
+      type: 'hydrated'
+      mode: Mode
+      catalogo: Catalogo | null
+      focusedGameId: string | null
+      controlePrompts: ControlePrompts
+    }
   | { type: 'catalog-updated'; catalogo: Catalogo }
   | { type: 'focus-game'; id: string }
   | { type: 'launch-start' }
@@ -51,7 +65,8 @@ export function reducer(state: KioskState, action: Action): KioskState {
         ...state,
         mode: action.mode,
         catalogo: action.catalogo,
-        focusedGameId: reconcileFocus(action.focusedGameId ?? state.focusedGameId, action.catalogo)
+        focusedGameId: reconcileFocus(action.focusedGameId ?? state.focusedGameId, action.catalogo),
+        controlePrompts: action.controlePrompts
       }
     case 'catalog-updated': {
       const focusedGameId = reconcileFocus(state.focusedGameId, action.catalogo)

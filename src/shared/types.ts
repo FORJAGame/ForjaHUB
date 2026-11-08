@@ -54,6 +54,8 @@ export interface KioskState {
   catalogo: Catalogo | null
   /** Id do Jogo em foco na fileira; `null` só quando não há Catálogo. */
   focusedGameId: string | null
+  /** Família dos prompts de Controle no rodapé, vinda do `station.json`. */
+  controlePrompts: ControlePrompts
 }
 
 /**
