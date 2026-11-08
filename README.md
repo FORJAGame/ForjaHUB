@@ -28,7 +28,7 @@
 - [Estado atual](#estado-atual)
 - [Stack](#stack)
 - [Rodando](#rodando)
-- [Como usar o Hub](docs/USO.md) — operação, Planilha, mídia e atalhos
+- [Como usar o Hub](docs/USO.md) — operação, Catálogo, mídia e atalhos
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Contribuir](#contribuir)
 
@@ -41,17 +41,17 @@ com múltiplos periféricos e sem depender de internet estável.
 
 Este README documenta o que **existe e funciona agora**, não a visão final do produto.
 
-Para operar o Hub numa estação de evento (configuração, Planilha de Catálogo,
-mídia no Drive e atalhos), veja [Como usar o FORJA Hub](docs/USO.md).
+Para operar o Hub numa estação de evento (configuração, Catálogo, mídia e
+atalhos), veja [Como usar o FORJA Hub](docs/USO.md).
 
 
 # Estado atual
 
 O que já está implementado e testado:
 
-- **Catálogo sincronizado com Google Sheets + Drive**: no boot, o main lê a
-  aba `JOGOS` da Planilha de Catálogo, valida cada linha com Zod e baixa a
-  mídia de cada Jogo da pasta do Drive.
+- **Catálogo sincronizado com o Supabase**: no boot, o main lê a tabela
+  `jogos`, valida cada linha com Zod e baixa a mídia de cada Jogo do bucket
+  `midia` (veja [Supabase](#supabase)).
 - **Cache offline**: o catálogo validado (`catalog.json` + mídia) é gravado
   em `userData/catalog/current/` por troca atômica de diretório.
 - **Setup de estação**: na primeira execução, a `SetupScreen` lista os Jogos
@@ -59,7 +59,7 @@ O que já está implementado e testado:
   com escrita atômica. Se nenhum Jogo selecionado existir mais no catálogo,
   o Hub volta para o setup.
 - **Tela de catálogo (kiosk)**: vitrine com arte-herói do Jogo em foco, logo
-  com fallback para o título, chips de ano, guilda e gênero, e uma fileira
+  com fallback para o título, chips de ano, estúdio e gênero, e uma fileira
   rolável de cards com navegação circular (o foco dá a volta), por controle,
   teclado ou mouse, com faíscas e um clique sonoro sintetizado a cada troca de
   foco. Só os Jogos selecionados na estação aparecem.
@@ -74,6 +74,10 @@ O que já está implementado e testado:
   ~1,5s depois e a recria quando o Jogo fecha, voltando ao card jogado. O
   selo QR das redes do Jogo é gerado no main (`qrcode`) e servido por
   `forja://media/<id>/qr`.
+- **Analytics de sessão**: cada Sessão de Jogo vira um registro anônimo
+  (Jogo, estação, evento, início, duração) gravado em `userData/analytics/`
+  e enviado em segundo plano para a tabela `sessoes` (veja
+  [Analytics](#analytics)).
 
 O que **ainda não existe**:
 
@@ -81,16 +85,15 @@ O que **ainda não existe**:
   `<userData>/games/<id>/` (veja [Instalando um Jogo à mão](#instalando-um-jogo-à-mão)).
 - Modo atração, painel do operador (`Ctrl+Shift+O` só troca para um
   placeholder), busca e filtros.
-- Analytics de sessão (tempo de jogo, visualizações).
 - Empacotamento e instalador testados para Windows (alvo principal).
 
 ## Instalando um Jogo à mão
 
 O Hub não baixa builds (no momento): coloque os arquivos do Jogo em `games/<id>/` dentro do `userData` da estação — `~/.config/forja-hub/games/<id>/` no Linux e
 `%APPDATA%\forja-hub\games\<id>\` no Windows, sendo `<id>` o `id` do Jogo na
-Planilha.
+tabela `jogos`.
 
-Com `exe_relativo` preenchido na Planilha, é esse o executável aberto, sempre
+Com `exe_relativo` preenchido no Catálogo, é esse o executável aberto, sempre
 confinado à pasta do Jogo (aceita `sub/pasta/Jogo.exe`, com `/` ou `\`).
 Vazio, o Hub procura sozinho até 2 níveis abaixo da pasta do Jogo: no Windows,
 o único `.exe`; nas outras plataformas, o único arquivo com permissão de
@@ -100,12 +103,70 @@ execução (fora bibliotecas `.so`, `.so.N` e `.dylib`). Auxiliares conhecidos
 ignorados. Sem candidato ou com mais de um, o JOGAR falha e o motivo vai para o
 log do `main`; o `exe_relativo` é quem desempata.
 
+## Supabase
+
+Catálogo, mídia e analytics vivem num projeto Supabase. O schema está em
+[`supabase/migrations/`](supabase/migrations): aplique com
+`npx supabase db push` no projeto (ou cole o SQL no SQL Editor).
+
+- **`jogos`**: uma linha por Jogo. Colunas `id` (kebab-case, chave),
+  `titulo`, `ano`, `estudio_id`, `genero`, `modalidade` (`single-player` ou
+  `multiplayer`), `sinopse`, `redes_url` e `exe_relativo` (os dois últimos
+  aceitam vazio). O Catálogo sai ordenado por `id`. A anon key só enxerga
+  linhas com `publicado = true`: rascunhos sem mídia completa não derrubam o
+  sync das estações.
+- **`estudios`**: o estúdio (Game Studio) de cada Jogo. O Hub lê só o `nome`,
+  achatado na consulta de `jogos` como campo `estudio`; é o crédito mostrado
+  na vitrine e no detalhe.
+- **Bucket `midia`**: uma pasta por Jogo com o nome do `id`, contendo
+  `capa.*`, `hero.*`, `logo.*` e ao menos um `detalhe-N.*`.
+- **`sessoes`**: recebe o analytics (veja abaixo).
+
+O Hub usa só a **anon key**, e grants + RLS limitam o que ela faz: ler
+`jogos` publicados, o nome dos estúdios e a mídia, e gravar Sessões pela função `registrar_sessoes`
+(sem ler, alterar ou apagar `sessoes`). Jogos, mídia e builds (bucket privado
+`builds`) são cadastrados pelo portal de cadastro (projeto `forjagames`), com
+service role no servidor, nunca com a chave das estações.
+
+A URL e a anon key vão em `MAIN_VITE_SUPABASE_URL` e
+`MAIN_VITE_SUPABASE_ANON_KEY` no `.env`, ou em `supabaseUrl` e
+`supabaseAnonKey` em `userData/config/app-config.json` (cada campo do arquivo
+sobrepõe o do build). O sync do boot é tudo-ou-nada: um Jogo inválido ou uma
+mídia faltando descarta o sync e mantém o cache anterior.
+
+Sem rede, o Hub roda com o cache local. Um sync que falhou tenta de novo em
+segundo plano (1 min, dobrando até 10 min) e, quando dá certo, a vitrine
+recebe o Catálogo novo sem reiniciar.
+
+## Analytics
+
+Cada Sessão de Jogo gera um registro sem dado pessoal, carimbado com a
+estação e o evento do setup. Ele é gravado em disco antes de qualquer envio
+(`userData/analytics/spool.jsonl`, com `fsync`), então nada se perde sem rede
+ou numa queda de energia. Um Jogo aberto mantém `open-session.json` atualizado
+a cada minuto: se a estação desligar, o próximo boot fecha a sessão com
+`incompleta = true`. Fechar o Hub com `Ctrl+Shift+Q` durante um Jogo também
+marca `incompleta`, mas com a duração real.
+
+O envio vai para a tabela `sessoes`: `id` (UUID gerado na estação),
+`evento_id`, `estacao_id`, `jogo_id`, `inicio` (`timestamptz`),
+`duracao_seg`, `incompleta` e `recebido_em` (preenchido pelo banco). Horário
+local sai na consulta, ex.: `inicio at time zone 'America/Recife'`. O envio
+roda depois do sync do boot e uns segundos após cada Sessão. Sem rede, tenta
+de novo em 5 min e depois a cada 10 min. Reenviar nunca duplica linha:
+`registrar_sessoes` usa `on conflict (id) do nothing`. Sem URL ou anon key, os registros
+continuam no disco e sobem quando a configuração existir.
+
+O main confere a rede a cada 10 s (`net.isOnline()`). Quando ela volta, as
+Sessões pendentes e um sync de Catálogo que tinha falhado saem na hora, sem
+esperar o backoff.
+
 # Stack
 
 - [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) v4
-- [googleapis](https://github.com/googleapis/google-api-nodejs-client) (Sheets + Drive via Service Account) e [Zod](https://zod.dev/) para validar o catálogo
+- [supabase-js](https://supabase.com/docs/reference/javascript) (Postgres + Storage) e [Zod](https://zod.dev/) para validar o catálogo
 - [Vitest](https://vitest.dev/) para os testes
 - [electron-builder](https://www.electron.build/) — empacotamento (ainda não validado em Windows)
 
@@ -116,12 +177,12 @@ Node 22).
 
 ```sh
 npm install
-cp .env.example .env   # preencha os IDs, veja docs/USO.md
+cp .env.example .env   # preencha URL e anon key do Supabase
 npm run dev
 ```
 
 Sem essa configuração o Hub abre, mas o sync aborta e a tela mostra o erro
-(`CATALOGO_NAO_CONFIGURADO` ou `CREDENCIAL_AUSENTE`). É configuração faltando,
+(`CATALOGO_NAO_CONFIGURADO`). É configuração faltando,
 não bug.
 
 > [!IMPORTANT]
@@ -157,8 +218,10 @@ de sessão só valem como validados depois de testados numa estação Windows.
 ForjaHUB/
 ├── src/
 │   ├── main/
-│   │   ├── catalog/    # Sync Sheets/Drive, schema, cache, boot, protocolo forja://
-│   │   ├── config/     # IDs da Planilha/Drive e handlers IPC de setup/hydrate
+│   │   ├── catalog/    # Sync Supabase (jogos + mídia), schema, cache, boot, protocolo forja://
+│   │   ├── config/     # URL/chave do Supabase e handlers IPC de setup/hydrate
+│   │   ├── supabase/   # Cliente supabase-js (tabelas e bucket usados pelo Hub)
+│   │   ├── analytics/  # Spool em disco, registro de Sessão e envio para `sessoes`
 │   │   ├── store/      # station.json e escrita atômica (arquivo e diretório)
 │   │   ├── launcher/   # Spawn e monitoramento de processo do Jogo
 │   │   └── index.ts    # Janela kiosk, protocolo, IPC e atalhos
@@ -169,6 +232,7 @@ ForjaHUB/
 │   │   ├── input/      # Teclado, gamepad e foco
 │   │   └── state/      # Reducer da aplicação
 │   └── shared/         # Tipos, canais IPC, forjaAPI e mediaUrl
+├── supabase/           # Migrations do banco (tabelas, RLS, bucket)
 ├── public/             # Assets do renderer (logo, favicon)
 ├── resources/          # Assets fora do build do renderer (hoje não referenciados no código)
 └── build/              # Ícones e configuração de empacotamento

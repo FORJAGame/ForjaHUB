@@ -7,7 +7,7 @@ function jogoValido(overrides: Partial<Record<string, unknown>> = {}): Record<st
     id: 'jogo-a',
     titulo: 'Jogo A',
     ano: 2024,
-    guilda: 'Guilda A',
+    estudio: 'Estúdio A',
     genero: 'Aventura',
     modalidade: 'single-player',
     sinopse: 'Uma sinopse qualquer.',
@@ -24,7 +24,7 @@ describe('JogoSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('coage ano vindo como string da Planilha', () => {
+  it('coage ano vindo como string (ex.: JSON legado)', () => {
     const result = JogoSchema.safeParse(jogoValido({ ano: '2019' }))
     expect(result.success).toBe(true)
     if (result.success) {
@@ -66,8 +66,8 @@ describe('JogoSchema', () => {
     expect(JogoSchema.safeParse(jogoValido({ ano: 1800 })).success).toBe(false)
   })
 
-  it('rejeita titulo/sinopse/guilda/genero vazios', () => {
-    for (const campo of ['titulo', 'sinopse', 'guilda', 'genero']) {
+  it('rejeita titulo/sinopse/estudio/genero vazios', () => {
+    for (const campo of ['titulo', 'sinopse', 'estudio', 'genero']) {
       expect(JogoSchema.safeParse(jogoValido({ [campo]: '' })).success).toBe(false)
     }
   })
@@ -86,7 +86,7 @@ describe('JogoSchema', () => {
     if (result.success) expect(result.data.redesUrl).toBe('https://exemplo.com/jogo-a')
   })
 
-  it.each(['id', 'titulo', 'guilda', 'genero', 'sinopse', 'exeRelativo'] as const)(
+  it.each(['id', 'titulo', 'estudio', 'genero', 'sinopse', 'exeRelativo'] as const)(
     'trima espaço em volta do campo %s',
     (campo) => {
       const bruto = campo === 'exeRelativo' ? '  Jogo.exe  ' : `  valor-${campo}  `
@@ -121,8 +121,8 @@ function soMetadados(overrides: Partial<Record<string, unknown>> = {}): Record<s
   return jogo
 }
 
-describe('JogoMetadataSchema (linha da Planilha, sem mídia)', () => {
-  it('aceita metadados sem detalheImagens — mídia é descoberta à parte via Drive', () => {
+describe('JogoMetadataSchema (linha da tabela jogos, sem mídia)', () => {
+  it('aceita metadados sem detalheImagens — mídia é descoberta à parte no bucket de mídia', () => {
     expect(JogoMetadataSchema.safeParse(soMetadados()).success).toBe(true)
   })
 

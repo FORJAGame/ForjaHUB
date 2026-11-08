@@ -16,13 +16,16 @@ function afterMs<T extends symbol>(ms: number, value: T): Promise<T> {
 
 export type SyncFn = (jogosSelecionados: string[]) => Promise<CommandResult<{ catalogo: Catalogo }>>
 export type ReadCacheFn = (baseDir: string) => Promise<Catalogo | null>
+export type SyncOk = Extract<CommandResult<{ catalogo: Catalogo }>, { ok: true }>
 
 export interface BootCatalogDeps {
   /** Injetável em teste; produção usa `sync` de `./sync` (mutex module-scope real). */
   sync?: SyncFn
   /** Injetável em teste; produção usa `readCatalogoCache` de `./cache`. */
   readCache?: ReadCacheFn
-  onSynced?: (result: Extract<CommandResult<{ catalogo: Catalogo }>, { ok: true }>) => void
+  onSynced?: (result: SyncOk) => void
+  /** Sync do boot falhou (dentro ou fora do budget), com ou sem Cache: quem chama agenda a nova tentativa. */
+  onSyncFailed?: () => void
   /** Injetável em teste (evita esperar os 10s reais); produção usa `CATALOG_SYNC_TIMEOUT_MS`. */
   timeoutMs?: number
 }
@@ -47,6 +50,7 @@ export async function bootCatalog(
 
   syncPromise.then((result) => {
     if (result.ok) deps.onSynced?.(result)
+    else deps.onSyncFailed?.()
   })
 
   const raced = await Promise.race([syncPromise, afterMs(timeoutMs, CATALOG_TIMEOUT)])

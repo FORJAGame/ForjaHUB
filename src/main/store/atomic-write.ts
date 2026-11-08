@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { mkdir, open, rename, unlink } from 'node:fs/promises'
+import { mkdir, open, rename, unlink, type FileHandle } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 
 async function fsyncDir(dir: string): Promise<void> {
@@ -25,9 +25,9 @@ async function fsyncDir(dir: string): Promise<void> {
  * `deps.rename` existe só pros testes exercitarem uma falha no `rename` sem
  * mexer no `fs` real (mesmo padrão de injeção do `launcher`).
  */
-export async function writeJsonAtomic(
+export async function writeTextAtomic(
   filePath: string,
-  data: unknown,
+  text: string,
   deps: { rename?: typeof rename } = {}
 ): Promise<void> {
   const doRename = deps.rename ?? rename
@@ -39,7 +39,7 @@ export async function writeJsonAtomic(
   try {
     const handle = await open(tmpPath, 'w')
     try {
-      await handle.writeFile(JSON.stringify(data, null, 2), 'utf-8')
+      await handle.writeFile(text, 'utf-8')
       await handle.sync()
     } finally {
       await handle.close()
@@ -48,6 +48,47 @@ export async function writeJsonAtomic(
   } catch (err) {
     await unlink(tmpPath).catch(() => {})
     throw err
+  }
+
+  await fsyncDir(dir)
+}
+
+export async function writeJsonAtomic(
+  filePath: string,
+  data: unknown,
+  deps: { rename?: typeof rename } = {}
+): Promise<void> {
+  await writeTextAtomic(filePath, JSON.stringify(data, null, 2), deps)
+}
+
+type EscreverAppend = (handle: FileHandle, texto: string) => Promise<void>
+
+export async function appendLinesDurable(
+  filePath: string,
+  lines: string[],
+  deps: { escrever?: EscreverAppend } = {}
+): Promise<void> {
+  if (lines.length === 0) return
+  if (lines.some((linha) => linha.includes('\n'))) {
+    throw new Error('appendLinesDurable: linha contém quebra de linha')
+  }
+  const escrever: EscreverAppend = deps.escrever ?? ((handle, texto) => handle.writeFile(texto, 'utf-8'))
+
+  const dir = dirname(filePath)
+  await mkdir(dir, { recursive: true })
+
+  const handle = await open(filePath, 'a')
+  try {
+    const tamanhoAntes = (await handle.stat()).size
+    try {
+      await escrever(handle, lines.map((linha) => linha + '\n').join(''))
+      await handle.sync()
+    } catch (err) {
+      await handle.truncate(tamanhoAntes).catch(() => {})
+      throw err
+    }
+  } finally {
+    await handle.close()
   }
 
   await fsyncDir(dir)

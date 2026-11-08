@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * Validação tudo-ou-nada da Planilha de Catálogo + mídia.
+ * Validação tudo-ou-nada da tabela `jogos` + mídia.
  * Uma linha/asset inválido derruba o `z.array`/download inteiro, quem chama
  * descarta o sync completo e mantém o Cache anterior intocado.
  */
@@ -13,7 +13,7 @@ const MODALIDADES = ['single-player', 'multiplayer'] as const
 /**
  * Sem `..` e sem caminho absoluto, nem POSIX (`/...`),
  * nem Windows (`C:\...`, `C:/...`, `\...`). Vazio é aceito: o Jogo chega como
- * `.zip` pela Planilha e o caminho do `.exe` só se sabe depois de extrair; vazio,
+ * `.zip` e o caminho do `.exe` só se sabe depois de extrair; vazio,
  * o `main` descobre o executável sozinho dentro de `games/<id>/`.
  */
 function isSafeRelativePath(bruto: string): boolean {
@@ -39,10 +39,10 @@ export const JogoMetadataSchema = z.object({
   id: z
     .string()
     .trim()
-    .regex(KEBAB_CASE_RE, 'id deve ser kebab-case (dono é a Planilha, nunca derivado do título)'),
+    .regex(KEBAB_CASE_RE, 'id deve ser kebab-case (dono é o Catálogo, nunca derivado do título)'),
   titulo: z.string().trim().min(1),
   ano: z.coerce.number().int().min(1970).max(2100),
-  guilda: z.string().trim().min(1),
+  estudio: z.string().trim().min(1),
   genero: z.string().trim().min(1),
   modalidade: z.enum(MODALIDADES),
   sinopse: z.string().trim().min(1),

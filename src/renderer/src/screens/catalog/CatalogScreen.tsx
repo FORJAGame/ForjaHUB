@@ -119,7 +119,7 @@ export default function CatalogScreen({
         >
           <div className="text-badge flex overflow-hidden rounded-chip text-ink-primary backdrop-blur-sm">
             <span className="bg-action/75 px-2 py-1.5 text-ink-on-action">{focused.ano}</span>
-            <span className="bg-surface-base/50 px-2 py-1.5">{focused.guilda}</span>
+            <span className="bg-surface-base/50 px-2 py-1.5">{focused.estudio}</span>
           </div>
           <MetaChip>{focused.genero}</MetaChip>
         </div>

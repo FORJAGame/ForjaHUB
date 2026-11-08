@@ -34,7 +34,7 @@ function catalogo(...jogos: Array<Pick<Jogo, 'id' | 'redesUrl'>>): Catalogo {
       ...j,
       titulo: j.id,
       ano: 2026,
-      guilda: 'FORJA',
+      estudio: 'FORJA',
       genero: 'Ação',
       modalidade: 'single-player',
       sinopse: 'Sinopse.',

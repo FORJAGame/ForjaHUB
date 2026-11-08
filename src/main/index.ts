@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'path'
-import { app, BrowserWindow, globalShortcut, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, net, protocol } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/channels'
 import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
-import { bootCatalog } from './catalog/boot'
+import { bootCatalog, type SyncOk } from './catalog/boot'
+import { createCatalogResync } from './catalog/resync'
+import { sync as syncCatalogo } from './catalog/sync'
 import { kioskCatalogUpdate } from './catalog/kiosk-view'
 import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
@@ -16,11 +18,14 @@ import {
   handleConfigRoster,
   handleConfigSetupSubmit
 } from './config/handlers'
+import { bootAnalytics, type Analytics } from './analytics/boot'
+import { createQuitGuard } from './analytics/quit-guard'
 import { createGameLauncher } from './launcher'
 import { createGameSession, type GameSession } from './launcher/game-session'
 import { createRecuo } from './launcher/recuo'
 import { resolveGameExe } from './launcher/resolve-exe'
 import { createStore } from './store'
+import { vigiarConexao } from './conexao'
 import type { Store } from './ports'
 
 // roda no top-level do módulo
@@ -41,6 +46,8 @@ let mainWindow: BrowserWindow | null = null
 let store: Store
 /** Fica no módulo porque o `window-all-closed` é registrado fora do `whenReady`. */
 let session: GameSession | null = null
+/** `null` = analytics desligado nesta execução (spool inutilizável). */
+let analytics: Analytics | null = null
 
 let catalogoAtual: CommandResult<{ catalogo: Catalogo }> | null = null
 let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
@@ -184,6 +191,9 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
 
+    analytics = await bootAnalytics(app.getPath('userData'), () => store.lerConfigEstacao())
+    const recorder = analytics?.recorder ?? null
+
     const launcher = createGameLauncher()
     const recuo = createRecuo({
       // O Jogo já está na frente: destruir a janela tira o Hub da tela sem matar a Sessão.
@@ -198,27 +208,46 @@ if (!app.requestSingleInstanceLock()) {
         findLaunchableJogo(jogoId, { lerConfigEstacao: () => store.lerConfigEstacao(), getCatalogResult }),
       resolverExe: (jogo) => resolveGameExe(app.getPath('userData'), jogo),
       aoIniciar: () => recuo.recuar(),
-      aoEncerrar: () => recuo.voltar()
+      aoEncerrar: () => recuo.voltar(),
+      abrirSessao: (s) => recorder?.iniciar(s) ?? Promise.resolve(),
+      registrarSessao: (s) => recorder?.encerrar(s) ?? Promise.resolve()
     })
     session = sessao
 
     await cleanupOrphanedCacheDirs(app.getPath('userData'))
 
-    catalogoInicial = bootCatalog(app.getPath('userData'), {
-      onSynced: async (result) => {
-        try {
-          catalogoAtual = result
-          const view = await kioskCatalogUpdate(result.catalogo, () => store.lerConfigEstacao())
-          if (view && mainWindow && !mainWindow.webContents.isDestroyed()) {
-            mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
-          }
-        } catch (err) {
-          console.error('[main] falha enviando catalog:updated:', err)
+    const aplicarCatalogo = async (result: SyncOk): Promise<void> => {
+      try {
+        catalogoAtual = result
+        const view = await kioskCatalogUpdate(result.catalogo, () => store.lerConfigEstacao())
+        if (view && mainWindow && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
         }
+      } catch (err) {
+        console.error('[main] falha enviando catalog:updated:', err)
       }
+    }
+    const catalogResync = createCatalogResync({ sync: syncCatalogo, onSynced: aplicarCatalogo })
+
+    catalogoInicial = bootCatalog(app.getPath('userData'), {
+      onSynced: aplicarCatalogo,
+      onSyncFailed: () => catalogResync.agendar()
     })
-    catalogoInicial.then((result) => {
-      if (!catalogoAtual) catalogoAtual = result
+    catalogoInicial
+      .then((result) => {
+        if (!catalogoAtual) catalogoAtual = result
+      })
+      .catch((err) => console.error('[main] Catálogo do boot falhou:', err))
+      // Envio pós-Catálogo do boot; nunca bloqueia nem falha o boot.
+      .finally(() => void analytics?.flusher.flushAgora())
+
+    // Rede voltou: Catálogo que ficou para trás e Sessões no disco sobem já, sem esperar o backoff.
+    vigiarConexao({
+      estaOnline: () => net.isOnline(),
+      aoVoltar: () => {
+        catalogResync.tentarAgora()
+        void analytics?.flusher.flushAgora()
+      }
     })
 
     app.on('browser-window-created', (_, window) => {
@@ -267,6 +296,19 @@ if (!app.requestSingleInstanceLock()) {
     if (session?.emExecucao()) return
     if (process.platform !== 'darwin') app.quit()
   })
+
+  // Quit com Jogo aberto: fecha a Sessão com a duração real antes de sair.
+  app.on(
+    'before-quit',
+    createQuitGuard({
+      temSessao: () => Boolean(analytics && (session?.emExecucao() || analytics.recorder.aberta())),
+      encerrar: async () => {
+        analytics?.flusher.parar()
+        await analytics?.recorder.encerrarNoQuit()
+      },
+      sair: () => app.quit()
+    })
+  )
 
   app.on('will-quit', () => globalShortcut.unregisterAll())
 }

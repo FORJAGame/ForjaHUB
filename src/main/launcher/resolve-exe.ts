@@ -44,9 +44,9 @@ export async function resolveGameExe(
   const candidatos = await varrer(raiz, platform)
   if (candidatos.length === 0) return { ok: false, code: 'EXE_NAO_ENCONTRADO' }
   if (candidatos.length > 1) {
-    // Só o operador resolve: um build com dois executáveis precisa de `exe_relativo` na Planilha.
+    // Só o operador resolve: um build com dois executáveis precisa de `exe_relativo` no Catálogo.
     console.warn(
-      '[main] build com mais de um executável; aponte `exe_relativo` na Planilha:',
+      '[main] build com mais de um executável; aponte `exe_relativo` do Jogo no Catálogo:',
       candidatos.map((caminho) => relative(raiz, caminho))
     )
     return { ok: false, code: 'EXE_AMBIGUO' }

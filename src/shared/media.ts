@@ -1,4 +1,4 @@
-/** `qr` não vem do Drive: o `main` gera o PNG a partir do `redesUrl` do Jogo. */
+/** `qr` não vem do bucket de mídia: o `main` gera o PNG a partir do `redesUrl` do Jogo. */
 export type MediaTipo = 'capa' | 'hero' | 'logo' | 'qr' | `detalhe-${number}`
 
 /**

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import type { Jogo } from '@shared/types'
-import type { DriveEntry, DriveMediaClient } from './google-client'
+import type { MidiaStorage } from '../supabase/client'
 import type { JogoMetadata } from './schema'
 
 /**
@@ -26,72 +26,59 @@ function nomeBase(nomeArquivo: string): string {
 }
 
 async function baixarAsset(
-  drive: DriveMediaClient,
-  entry: DriveEntry,
+  midia: MidiaStorage,
+  jogoId: string,
+  nomeArquivo: string,
   destDir: string,
-  tipo: string,
-  jogoId: string
+  tipo: string
 ): Promise<void> {
   let buffer: Buffer
   try {
-    buffer = await drive.downloadFile(entry.id)
+    buffer = await midia.baixar(`${jogoId}/${nomeArquivo}`)
   } catch (err) {
     throw new MidiaIndisponivelError(
-      `Jogo '${jogoId}': falha baixando ${tipo} (${entry.name}): ${(err as Error).message}`
+      `Jogo '${jogoId}': falha baixando ${tipo} (${nomeArquivo}): ${(err as Error).message}`
     )
   }
   await mkdir(destDir, { recursive: true })
-  await writeFile(join(destDir, `${tipo}${extname(entry.name)}`), buffer)
+  await writeFile(join(destDir, `${tipo}${extname(nomeArquivo)}`), buffer)
 }
 
 /**
- * Baixa a mídia de cada Jogo (subpasta Drive = `id`, dentro de `mediaFolderId`)
- * pro staging dir (`<stagingMediaDir>/<id>/<tipo><ext>`). Tudo-ou-nada: pasta
- * ausente, asset obrigatório ausente/não-baixável ou zero `detalhe-N` derruba
- * o download inteiro.
+ * Baixa a mídia de cada Jogo (pasta `<id>/` no bucket de mídia) pro staging dir
+ * (`<stagingMediaDir>/<id>/<tipo><ext>`). Tudo-ou-nada: pasta vazia/ausente,
+ * asset obrigatório ausente/não-baixável ou zero `detalhe-N` derruba o
+ * download inteiro.
  *
  * Devolve o `Jogo[]` completo (metadados + `detalheImagens`), pronto pro
  * `catalog.json` do staging.
  */
 export async function downloadMediaParaJogos(
-  drive: DriveMediaClient,
-  mediaFolderId: string,
+  midia: MidiaStorage,
   jogosMetadata: JogoMetadata[],
   stagingMediaDir: string
 ): Promise<Jogo[]> {
-  const raiz = await drive.listFolder(mediaFolderId)
   const jogos: Jogo[] = []
 
   for (const metadata of jogosMetadata) {
-    // Drive permite subpastas irmãs com o mesmo nome, mais de uma bate no
-    // `id` do Jogo é ambiguidade, não escolha silenciosa da primeira.
-    const candidatosPasta = raiz.filter((entry) => entry.name === metadata.id)
-    if (candidatosPasta.length === 0) {
-      throw new MidiaIndisponivelError(`Jogo '${metadata.id}': pasta de mídia ausente no Drive`)
-    }
-    if (candidatosPasta.length > 1) {
-      throw new MidiaIndisponivelError(
-        `Jogo '${metadata.id}': mais de uma subpasta de mídia com o nome '${metadata.id}' (ambíguo)`
-      )
-    }
-    const subpasta = candidatosPasta[0]
-
-    let arquivos: DriveEntry[]
+    let arquivos: string[]
     try {
-      arquivos = await drive.listFolder(subpasta.id)
+      arquivos = await midia.listar(metadata.id)
     } catch (err) {
       throw new MidiaIndisponivelError(
         `Jogo '${metadata.id}': falha listando a pasta de mídia: ${(err as Error).message}`
       )
     }
+    // O Storage não distingue pasta vazia de pasta inexistente.
+    if (arquivos.length === 0) {
+      throw new MidiaIndisponivelError(`Jogo '${metadata.id}': pasta de mídia ausente ou vazia`)
+    }
 
     const destDir = join(stagingMediaDir, metadata.id)
 
     const detalhes = arquivos
-      .map((entry) => ({ entry, match: entry.name.match(DETALHE_RE) }))
-      .filter(
-        (achado): achado is { entry: DriveEntry; match: RegExpMatchArray } => achado.match !== null
-      )
+      .map((nome) => ({ nome, match: nome.match(DETALHE_RE) }))
+      .filter((achado): achado is { nome: string; match: RegExpMatchArray } => achado.match !== null)
       .sort((a, b) => Number(a.match[1]) - Number(b.match[1]))
 
     if (detalhes.length === 0) {
@@ -108,26 +95,22 @@ export async function downloadMediaParaJogos(
 
     for (const tipo of ASSETS_OBRIGATORIOS) {
       // Alvo Windows/NTFS é case-insensitive por padrão, `Capa.png` conta como `capa`.
-      const candidatos = arquivos.filter(
-        (candidato) => nomeBase(candidato.name).toLowerCase() === tipo
-      )
+      const candidatos = arquivos.filter((nome) => nomeBase(nome).toLowerCase() === tipo)
       if (candidatos.length === 0) {
         throw new MidiaIndisponivelError(`Jogo '${metadata.id}': ${tipo}.* ausente na pasta de mídia`)
       }
       if (candidatos.length > 1) {
         throw new MidiaIndisponivelError(
-          `Jogo '${metadata.id}': mais de um arquivo pro asset '${tipo}' (ambíguo: ${candidatos
-            .map((c) => c.name)
-            .join(', ')})`
+          `Jogo '${metadata.id}': mais de um arquivo pro asset '${tipo}' (ambíguo: ${candidatos.join(', ')})`
         )
       }
-      await baixarAsset(drive, candidatos[0], destDir, tipo, metadata.id)
+      await baixarAsset(midia, metadata.id, candidatos[0], destDir, tipo)
     }
 
     const detalheImagens: string[] = []
-    for (const { entry, match } of detalhes) {
+    for (const { nome, match } of detalhes) {
       const tipo = `detalhe-${match[1]}`
-      await baixarAsset(drive, entry, destDir, tipo, metadata.id)
+      await baixarAsset(midia, metadata.id, nome, destDir, tipo)
       detalheImagens.push(tipo)
     }
 

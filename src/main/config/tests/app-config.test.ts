@@ -2,13 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  appConfigPath,
-  BUILD_MEDIA_FOLDER_ID,
-  BUILD_SPREADSHEET_ID,
-  resolveMediaFolderId,
-  resolveSpreadsheetId
-} from '../app-config'
+import { appConfigPath, BUILD_SUPABASE_ANON_KEY, BUILD_SUPABASE_URL, resolveSupabaseConfig } from '../app-config'
 
 const dirs: string[] = []
 function tmpDir(): string {
@@ -17,71 +11,65 @@ function tmpDir(): string {
   return d
 }
 
+function escreverConfig(dir: string, conteudo: string): void {
+  mkdirSync(join(dir, 'config'), { recursive: true })
+  writeFileSync(appConfigPath(dir), conteudo)
+}
+
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
-describe('resolveSpreadsheetId', () => {
-  it('sem app-config.json -> BUILD_SPREADSHEET_ID (placeholder de build)', async () => {
-    await expect(resolveSpreadsheetId(tmpDir())).resolves.toBe(BUILD_SPREADSHEET_ID)
+const BUILD_COMPLETO = BUILD_SUPABASE_URL !== '' && BUILD_SUPABASE_ANON_KEY !== ''
+
+describe('resolveSupabaseConfig', () => {
+  it('sem app-config.json -> valores de build (null quando o build não os define)', async () => {
+    const esperado = BUILD_COMPLETO ? { url: BUILD_SUPABASE_URL, anonKey: BUILD_SUPABASE_ANON_KEY } : null
+    await expect(resolveSupabaseConfig(tmpDir())).resolves.toEqual(esperado)
   })
 
-  it('override real em app-config.json -> devolve o spreadsheetId do arquivo', async () => {
+  it('override completo em app-config.json -> devolve url e anonKey do arquivo', async () => {
     const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), JSON.stringify({ spreadsheetId: 'sheet-real-123' }))
-    await expect(resolveSpreadsheetId(dir)).resolves.toBe('sheet-real-123')
+    escreverConfig(dir, JSON.stringify({ supabaseUrl: 'https://proj.supabase.co', supabaseAnonKey: 'anon-real' }))
+    await expect(resolveSupabaseConfig(dir)).resolves.toEqual({
+      url: 'https://proj.supabase.co',
+      anonKey: 'anon-real'
+    })
   })
 
-  it('JSON inválido -> BUILD_SPREADSHEET_ID, não lança', async () => {
+  it.each([
+    { supabaseUrl: 'https://proj.supabase.co' },
+    { supabaseAnonKey: 'anon-real' }
+  ])('override parcial %o completa só o campo presente com o build (null se o build não o tem)', async (parcial) => {
     const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), '{ nem json')
-    await expect(resolveSpreadsheetId(dir)).resolves.toBe(BUILD_SPREADSHEET_ID)
+    escreverConfig(dir, JSON.stringify(parcial))
+    const url = 'supabaseUrl' in parcial ? parcial.supabaseUrl : BUILD_SUPABASE_URL
+    const anonKey = 'supabaseAnonKey' in parcial ? parcial.supabaseAnonKey : BUILD_SUPABASE_ANON_KEY
+    const esperado = url && anonKey ? { url, anonKey } : null
+    await expect(resolveSupabaseConfig(dir)).resolves.toEqual(esperado)
   })
 
-  it('shape inválido (spreadsheetId vazio) -> BUILD_SPREADSHEET_ID', async () => {
+  it('JSON inválido -> tratado como sem override, não lança', async () => {
     const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), JSON.stringify({ spreadsheetId: '' }))
-    await expect(resolveSpreadsheetId(dir)).resolves.toBe(BUILD_SPREADSHEET_ID)
-  })
-
-  it('app-config.json sem a chave spreadsheetId -> BUILD_SPREADSHEET_ID', async () => {
-    const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), JSON.stringify({ outraCoisa: true }))
-    await expect(resolveSpreadsheetId(dir)).resolves.toBe(BUILD_SPREADSHEET_ID)
-  })
-})
-
-describe('resolveMediaFolderId (espelha resolveSpreadsheetId)', () => {
-  it('sem app-config.json -> BUILD_MEDIA_FOLDER_ID (placeholder de build)', async () => {
-    await expect(resolveMediaFolderId(tmpDir())).resolves.toBe(BUILD_MEDIA_FOLDER_ID)
-  })
-
-  it('override real em app-config.json -> devolve o driveMediaFolderId do arquivo', async () => {
-    const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), JSON.stringify({ driveMediaFolderId: 'drive-media-real-123' }))
-    await expect(resolveMediaFolderId(dir)).resolves.toBe('drive-media-real-123')
-  })
-
-  it('os dois overrides convivem no mesmo app-config.json', async () => {
-    const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(
-      appConfigPath(dir),
-      JSON.stringify({ spreadsheetId: 'sheet-real-123', driveMediaFolderId: 'drive-media-real-123' })
+    escreverConfig(dir, '{ nem json')
+    await expect(resolveSupabaseConfig(dir)).resolves.toEqual(
+      BUILD_COMPLETO ? { url: BUILD_SUPABASE_URL, anonKey: BUILD_SUPABASE_ANON_KEY } : null
     )
-    await expect(resolveSpreadsheetId(dir)).resolves.toBe('sheet-real-123')
-    await expect(resolveMediaFolderId(dir)).resolves.toBe('drive-media-real-123')
   })
 
-  it('shape inválido (driveMediaFolderId vazio) -> BUILD_MEDIA_FOLDER_ID', async () => {
+  it('shape inválido (campo vazio) -> tratado como sem override, o override válido do mesmo arquivo também cai', async () => {
     const dir = tmpDir()
-    mkdirSync(join(dir, 'config'), { recursive: true })
-    writeFileSync(appConfigPath(dir), JSON.stringify({ driveMediaFolderId: '' }))
-    await expect(resolveMediaFolderId(dir)).resolves.toBe(BUILD_MEDIA_FOLDER_ID)
+    escreverConfig(dir, JSON.stringify({ supabaseUrl: 'https://proj.supabase.co', supabaseAnonKey: '' }))
+    await expect(resolveSupabaseConfig(dir)).resolves.toEqual(
+      BUILD_COMPLETO ? { url: BUILD_SUPABASE_URL, anonKey: BUILD_SUPABASE_ANON_KEY } : null
+    )
+  })
+
+  it('app-config.json sem as chaves do Supabase -> tratado como sem override', async () => {
+    const dir = tmpDir()
+    escreverConfig(dir, JSON.stringify({ outraCoisa: true }))
+    await expect(resolveSupabaseConfig(dir)).resolves.toEqual(
+      BUILD_COMPLETO ? { url: BUILD_SUPABASE_URL, anonKey: BUILD_SUPABASE_ANON_KEY } : null
+    )
   })
 })

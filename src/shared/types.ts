@@ -66,7 +66,8 @@ export interface Jogo {
   id: string
   titulo: string
   ano: number
-  guilda: string //estudio
+  /** Nome do estúdio (Game Studio) dono do Jogo, vindo da tabela `estudios`. */
+  estudio: string
   genero: string
   modalidade: Modalidade
   sinopse: string
@@ -84,10 +85,18 @@ export interface Catalogo {
   sincronizadoEm: string
 }
 
+/** Uma Sessão de Jogo. Anônimo: nenhum dado do Visitante. */
 export interface RegistroAnalytics {
-  /** UUID v4 gerado no cliente. */
+  /** UUID v4 gerado no cliente; chave de idempotência no destino. */
   id: string
   jogoId: string
+  /** Carimbo da `ConfigEstacao` no início da Sessão; não muda depois. */
+  estacaoId: string
+  eventoId: string
+  inicioISO: string
+  duracaoSeg: number
+  /** Sessão sem fecho limpo (queda de energia, quit com Jogo aberto). */
+  incompleta?: true
 }
 
 export interface ConfigEstacao {
