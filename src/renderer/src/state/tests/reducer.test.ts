@@ -7,7 +7,8 @@ const base: KioskState = {
   errorPlate: 'ALGO',
   controllerConnected: true,
   catalogo: null,
-  focusedGameId: null
+  focusedGameId: null,
+  controlePrompts: 'xbox'
 }
 
 function jogo(id: string): Jogo {
@@ -30,13 +31,14 @@ function catalogo(...ids: string[]): Catalogo {
 }
 
 describe('initialState', () => {
-  it('começa em boot, sem placa de erro, sem controle e sem Catálogo', () => {
+  it('começa em boot, sem placa de erro, sem controle, sem Catálogo e com prompts de Xbox', () => {
     expect(initialState).toEqual({
       mode: 'boot',
       errorPlate: null,
       controllerConnected: false,
       catalogo: null,
-      focusedGameId: null
+      focusedGameId: null,
+      controlePrompts: 'xbox'
     })
   })
 })
@@ -111,7 +113,8 @@ describe('reducer — hydrated', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('a', 'b'),
-      focusedGameId: null
+      focusedGameId: null,
+      controlePrompts: 'xbox'
     })
     expect(next.mode).toBe('catalog')
     expect(next.catalogo?.jogos.map((j) => j.id)).toEqual(['a', 'b'])
@@ -123,7 +126,8 @@ describe('reducer — hydrated', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('a', 'b'),
-      focusedGameId: 'b'
+      focusedGameId: 'b',
+      controlePrompts: 'xbox'
     })
     expect(next.focusedGameId).toBe('b')
   })
@@ -133,7 +137,8 @@ describe('reducer — hydrated', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('a', 'b'),
-      focusedGameId: 'fantasma'
+      focusedGameId: 'fantasma',
+      controlePrompts: 'xbox'
     })
     expect(next.focusedGameId).toBe('a')
   })
@@ -144,15 +149,28 @@ describe('reducer — hydrated', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('a', 'b', 'c'),
-      focusedGameId: null
+      focusedGameId: null,
+      controlePrompts: 'xbox'
     })
     expect(next.focusedGameId).toBe('b')
   })
 
-  it('setup sem Catálogo zera o foco', () => {
+  it('setup sem Catálogo zera o foco e adota a família de prompts do hydrate', () => {
     const state = { ...base, catalogo: catalogo('a'), focusedGameId: 'a' }
-    const next = reducer(state, { type: 'hydrated', mode: 'setup', catalogo: null, focusedGameId: null })
-    expect(next).toEqual({ ...base, mode: 'setup', catalogo: null, focusedGameId: null })
+    const next = reducer(state, {
+      type: 'hydrated',
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: 'playstation'
+    })
+    expect(next).toEqual({
+      ...base,
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: 'playstation'
+    })
   })
 
   it('mode fora do union deixa o estado inalterado (mesma referência)', () => {
@@ -160,7 +178,8 @@ describe('reducer — hydrated', () => {
       type: 'hydrated',
       mode: 'bogus' as Mode,
       catalogo: catalogo('a'),
-      focusedGameId: null
+      focusedGameId: null,
+      controlePrompts: 'playstation'
     })
     expect(next).toBe(base)
   })

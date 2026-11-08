@@ -44,6 +44,7 @@ describe('readConfigEstacao', () => {
       estacaoId: 'tv-principal',
       eventoId: 'recnplay-2026',
       jogosSelecionados: ['jogo-a'],
+      controlePrompts: 'playstation',
       schemaVersion: CURRENT_SCHEMA_VERSION
     }
     writeFileSync(file, JSON.stringify(config))
@@ -65,13 +66,30 @@ describe('readConfigEstacao', () => {
         eventoId: 'recnplay-2026',
         jogosSelecionados: ['jogo-a'],
         schemaVersion: 1
-      })
+      }),
+      1: (data: unknown) => ({ ...(data as Record<string, unknown>), controlePrompts: 'xbox', schemaVersion: 2 })
     }
     await expect(readConfigEstacao(file, migrations)).resolves.toEqual({
       estacaoId: 'tv',
       eventoId: 'recnplay-2026',
       jogosSelecionados: ['jogo-a'],
-      schemaVersion: 1
+      controlePrompts: 'xbox',
+      schemaVersion: 2
+    })
+  })
+
+  it('station.json v1 vira v2 com prompts de Xbox, sem cair no 1º boot', async () => {
+    const file = tmpFile()
+    writeFileSync(
+      file,
+      JSON.stringify({ estacaoId: 'tv', eventoId: 'recnplay-2026', jogosSelecionados: ['jogo-a'], schemaVersion: 1 })
+    )
+    await expect(readConfigEstacao(file)).resolves.toEqual({
+      estacaoId: 'tv',
+      eventoId: 'recnplay-2026',
+      jogosSelecionados: ['jogo-a'],
+      controlePrompts: 'xbox',
+      schemaVersion: 2
     })
   })
 })
@@ -83,7 +101,7 @@ describe('runMigrations', () => {
 
   it('para na primeira versão sem migração registrada', () => {
     const migrations = { 0: (d: unknown) => ({ ...(d as object), touched: true }) }
-    // fromVersion 0 com CURRENT=1: aplica só a migração da versão 0
+    // fromVersion 0 com CURRENT=2: aplica só a migração da versão 0
     expect(runMigrations({ a: 1 }, 0, migrations)).toEqual({ a: 1, touched: true })
   })
 })
@@ -95,6 +113,7 @@ describe('writeConfigEstacao', () => {
       estacaoId: 'tv-principal',
       eventoId: 'recnplay-2026',
       jogosSelecionados: ['jogo-a', 'jogo-b'],
+      controlePrompts: 'xbox' as const,
       schemaVersion: CURRENT_SCHEMA_VERSION
     }
     await writeConfigEstacao(file, config)

@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
-import type { ConfigEstacao } from '@shared/types'
+import { CONTROLE_PROMPTS, CONTROLE_PROMPTS_PADRAO, type ConfigEstacao } from '@shared/types'
 import { writeJsonAtomic } from './atomic-write'
 
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 /** Versão maior que a suportada recusa iniciar e nunca corrompe o arquivo. */
 export class SchemaIncompativelError extends Error {
@@ -20,12 +20,18 @@ const ConfigEstacaoSchema = z.object({
   estacaoId: z.string().min(1),
   eventoId: z.string().min(1),
   jogosSelecionados: z.array(z.string().min(1)).min(1),
+  controlePrompts: z.enum(CONTROLE_PROMPTS),
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION)
 })
 
 const VersionShape = z.object({ schemaVersion: z.number().int() })
 
 export type Migration = (data: unknown) => unknown
+
+/** v1 → v2: a Estação já configurada ganha a família de prompts padrão até alguém refazer o Setup. */
+export const MIGRATIONS: Record<number, Migration> = {
+  1: (data) => ({ ...(data as Record<string, unknown>), controlePrompts: CONTROLE_PROMPTS_PADRAO, schemaVersion: 2 })
+}
 
 export function runMigrations(
   data: unknown,
@@ -47,7 +53,7 @@ export function runMigrations(
  */
 export async function readConfigEstacao(
   filePath: string,
-  migrations: Record<number, Migration> = {}
+  migrations: Record<number, Migration> = MIGRATIONS
 ): Promise<ConfigEstacao | null> {
   let raw: string
   try {

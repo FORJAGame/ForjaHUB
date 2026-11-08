@@ -9,7 +9,8 @@ describe('validateSetupSubmit', () => {
       {
         estacaoId: '  TV Principal  ',
         eventoId: 'RECNPLAY 2026',
-        jogosSelecionados: ['jogo-a', 'jogo-b']
+        jogosSelecionados: ['jogo-a', 'jogo-b'],
+        controlePrompts: 'playstation'
       },
       ROSTER_IDS
     )
@@ -17,7 +18,8 @@ describe('validateSetupSubmit', () => {
       ok: true,
       estacaoId: 'tv-principal',
       eventoId: 'recnplay-2026',
-      jogosSelecionados: ['jogo-a', 'jogo-b']
+      jogosSelecionados: ['jogo-a', 'jogo-b'],
+      controlePrompts: 'playstation'
     })
   })
 
@@ -30,10 +32,19 @@ describe('validateSetupSubmit', () => {
     expect(validateSetupSubmit('nope', ROSTER_IDS)).toEqual({ ok: false, code: 'SETUP_INVALIDO' })
   })
 
+  it('rejeita família de prompts ausente ou desconhecida', () => {
+    const base = { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-a'] }
+    expect(validateSetupSubmit(base, ROSTER_IDS)).toEqual({ ok: false, code: 'SETUP_INVALIDO' })
+    expect(validateSetupSubmit({ ...base, controlePrompts: 'switch' }, ROSTER_IDS)).toEqual({
+      ok: false,
+      code: 'SETUP_INVALIDO'
+    })
+  })
+
   it('rejeita jogo vazio na lista (shape)', () => {
     expect(
       validateSetupSubmit(
-        { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-a', ''] },
+        { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-a', ''], controlePrompts: 'xbox' },
         ROSTER_IDS
       )
     ).toEqual({ ok: false, code: 'SETUP_INVALIDO' })
@@ -42,7 +53,7 @@ describe('validateSetupSubmit', () => {
   it('rejeita quando os IDs normalizam para vazio', () => {
     expect(
       validateSetupSubmit(
-        { estacaoId: '   ', eventoId: 'recnplay', jogosSelecionados: ['jogo-a'] },
+        { estacaoId: '   ', eventoId: 'recnplay', jogosSelecionados: ['jogo-a'], controlePrompts: 'xbox' },
         ROSTER_IDS
       )
     ).toEqual({ ok: false, code: 'SETUP_INVALIDO' })
@@ -50,14 +61,17 @@ describe('validateSetupSubmit', () => {
 
   it('rejeita sem nenhum Jogo selecionado (AD-11)', () => {
     expect(
-      validateSetupSubmit({ estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: [] }, ROSTER_IDS)
+      validateSetupSubmit(
+        { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: [], controlePrompts: 'xbox' },
+        ROSTER_IDS
+      )
     ).toEqual({ ok: false, code: 'SETUP_SEM_JOGO' })
   })
 
   it('rejeita Jogo fora do roster', () => {
     expect(
       validateSetupSubmit(
-        { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-fantasma'] },
+        { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-fantasma'], controlePrompts: 'xbox' },
         ROSTER_IDS
       )
     ).toEqual({ ok: false, code: 'SETUP_JOGO_DESCONHECIDO' })
@@ -65,27 +79,39 @@ describe('validateSetupSubmit', () => {
 
   it('dedupe jogos repetidos', () => {
     const result = validateSetupSubmit(
-      { estacaoId: 'tv', eventoId: 'recnplay', jogosSelecionados: ['jogo-a', 'jogo-a', 'jogo-b'] },
+      {
+        estacaoId: 'tv',
+        eventoId: 'recnplay',
+        jogosSelecionados: ['jogo-a', 'jogo-a', 'jogo-b'],
+        controlePrompts: 'xbox'
+      },
       ROSTER_IDS
     )
     expect(result).toEqual({
       ok: true,
       estacaoId: 'tv',
       eventoId: 'recnplay',
-      jogosSelecionados: ['jogo-a', 'jogo-b']
+      jogosSelecionados: ['jogo-a', 'jogo-b'],
+      controlePrompts: 'xbox'
     })
   })
 
   it('é idempotente em cima de IDs já normalizados', () => {
     const result = validateSetupSubmit(
-      { estacaoId: 'tv-principal', eventoId: 'recnplay-2026', jogosSelecionados: ['jogo-a'] },
+      {
+        estacaoId: 'tv-principal',
+        eventoId: 'recnplay-2026',
+        jogosSelecionados: ['jogo-a'],
+        controlePrompts: 'xbox'
+      },
       ROSTER_IDS
     )
     expect(result).toEqual({
       ok: true,
       estacaoId: 'tv-principal',
       eventoId: 'recnplay-2026',
-      jogosSelecionados: ['jogo-a']
+      jogosSelecionados: ['jogo-a'],
+      controlePrompts: 'xbox'
     })
   })
 })

@@ -33,7 +33,8 @@ describe('reducer — sequências do ciclo JOGAR', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: cat,
-      focusedGameId: 'corvo'
+      focusedGameId: 'corvo',
+      controlePrompts: 'xbox'
     })
     expect(hidratado).toMatchObject({ mode: 'catalog', focusedGameId: 'corvo' })
 
@@ -154,7 +155,8 @@ describe('reducer — sequências do ciclo JOGAR', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('rebite', 'corvo'),
-      focusedGameId: 'fantasma'
+      focusedGameId: 'fantasma',
+      controlePrompts: 'xbox'
     })
 
     expect(s.focusedGameId).toBe('rebite')
@@ -172,7 +174,8 @@ describe('reducer — sequências do ciclo JOGAR', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo('rebite', 'corvo'),
-      focusedGameId: null
+      focusedGameId: null,
+      controlePrompts: 'xbox'
     })
 
     expect(s.focusedGameId).toBe('corvo')
@@ -183,7 +186,8 @@ describe('reducer — sequências do ciclo JOGAR', () => {
       type: 'hydrated',
       mode: 'catalog',
       catalogo: catalogo(),
-      focusedGameId: 'rebite'
+      focusedGameId: 'rebite',
+      controlePrompts: 'xbox'
     })
 
     expect(s.focusedGameId).toBeNull()

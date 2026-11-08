@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createGamepadReader,
+  isGamepadActive,
   NEUTRAL_DIGITAL,
   readGamepadIntents,
   selectActiveGamepad,
@@ -117,5 +118,16 @@ describe('createGamepadReader — tela recém-montada', () => {
     ler(makePad({}))
     expect(ler(null)).toEqual([])
     expect(ler(makePad({ buttons: { 1: true } }))).toEqual(['back'])
+  })
+})
+
+describe('isGamepadActive', () => {
+  it('Controle em repouso (eixos com drift dentro da deadzone) não rouba o rodapé do teclado/mouse', () => {
+    expect(isGamepadActive(makePad({ axes: [0.2, -0.49] }))).toBe(false)
+  })
+
+  it('qualquer botão, inclusive fora do mapa de intents, ou eixo na deadzone conta como uso', () => {
+    expect(isGamepadActive(makePad({ buttons: { 9: true } }))).toBe(true)
+    expect(isGamepadActive(makePad({ axes: [0, -0.5] }))).toBe(true)
   })
 })

@@ -39,7 +39,12 @@ describe('handleConfigRoster', () => {
 })
 
 describe('handleConfigSetupSubmit', () => {
-  const inputValido = { estacaoId: 'tv-1', eventoId: 'evento-1', jogosSelecionados: ['jogo-a'] }
+  const inputValido = {
+    estacaoId: 'tv-1',
+    eventoId: 'evento-1',
+    jogosSelecionados: ['jogo-a'],
+    controlePrompts: 'playstation' as const
+  }
 
   it('catálogo falho -> propaga o code real ANTES do validateSetupSubmit (regressão do bug: rosterIds=[] escondia o motivo)', async () => {
     const falha: CommandResult<{ catalogo: Catalogo }> = { ok: false, code: 'CATALOGO_NAO_CONFIGURADO' }
@@ -63,6 +68,7 @@ describe('handleConfigSetupSubmit', () => {
       estacaoId: 'tv-1',
       eventoId: 'evento-1',
       jogosSelecionados: ['jogo-a'],
+      controlePrompts: 'playstation',
       schemaVersion: expect.any(Number)
     })
   })
@@ -101,6 +107,7 @@ function config(jogosSelecionados: string[]): ConfigEstacao {
     estacaoId: 'tv-1',
     eventoId: 'evento-1',
     jogosSelecionados,
+    controlePrompts: 'playstation',
     schemaVersion: CURRENT_SCHEMA_VERSION
   }
 }
@@ -115,12 +122,13 @@ describe('handleAppHydrate', () => {
     })
     expect(result.ok && result.mode).toBe('catalog')
     expect(result.ok && result.catalogo?.jogos.map((j) => j.id)).toEqual(['corvo', 'rebite'])
+    expect(result.ok && result.controlePrompts).toBe('playstation')
   })
 
   it('sem config -> setup sem Catálogo e sem esperar o sync', async () => {
     const getCatalogResult = vi.fn()
     const result = await handleAppHydrate({ lerConfigEstacao: async () => null, getCatalogResult })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts: 'xbox' })
     expect(getCatalogResult).not.toHaveBeenCalled()
   })
 
@@ -130,7 +138,13 @@ describe('handleAppHydrate', () => {
       lerConfigEstacao: async () => config(['fantasma', 'sumido']),
       getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK })
     })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
+    expect(result).toEqual({
+      ok: true,
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: 'playstation'
+    })
     expect(warn).toHaveBeenCalledWith(expect.any(String), ['fantasma', 'sumido'])
   })
 
@@ -252,7 +266,7 @@ describe('handleAppHydrate — foco da volta de uma partida', () => {
       getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
       ultimoJogoId: () => 'rebite'
     })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null })
+    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts: 'xbox' })
   })
 })
 

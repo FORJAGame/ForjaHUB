@@ -64,6 +64,11 @@ export function createGamepadReader(): (pad: GamepadLike | null) => Intent[] {
   }
 }
 
+/** Qualquer botão apertado ou eixo fora da deadzone: o Visitante está usando o Controle. */
+export function isGamepadActive(pad: GamepadLike): boolean {
+  return pad.buttons.some((button) => button.pressed) || pad.axes.some((axis) => Math.abs(axis) >= DEADZONE)
+}
+
 /** Único Controle ativo */
 export function selectActiveGamepad<T>(pads: readonly (T | null)[]): T | null {
   for (const pad of pads) {

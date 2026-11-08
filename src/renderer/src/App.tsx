@@ -4,6 +4,8 @@ import { BootScreen, ErrorPlate } from './design/primitives'
 import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
 import { useInputIntents } from './input/hooks/use-input-intents'
+import { useLastInputDevice } from './input/hooks/use-last-input-device'
+import { promptSet } from './input/prompts'
 import CatalogScreen from './screens/catalog/CatalogScreen'
 import DetailScreen from './screens/detail/DetailScreen'
 import SetupScreen from './screens/setup/SetupScreen'
@@ -18,8 +20,15 @@ function runHydrate(api: ForjaAPI, dispatch: Dispatch<Action>, alive: () => bool
     .hydrate()
     .then((res) => {
       if (!alive()) return
-      if (res.ok) dispatch({ type: 'hydrated', mode: res.mode, catalogo: res.catalogo, focusedGameId: res.focusedGameId })
-      else dispatch({ type: 'error-plate', code: res.code })
+      if (res.ok) {
+        dispatch({
+          type: 'hydrated',
+          mode: res.mode,
+          catalogo: res.catalogo,
+          focusedGameId: res.focusedGameId,
+          controlePrompts: res.controlePrompts
+        })
+      } else dispatch({ type: 'error-plate', code: res.code })
     })
     .catch(() => {
       if (alive()) dispatch({ type: 'error-plate', code: 'HYDRATE_FALHOU' })
@@ -30,6 +39,7 @@ export default function App(): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [everConnected, setEverConnected] = useState(false)
   const cursorVisible = useCursorIdle()
+  const prompts = promptSet(useLastInputDevice(), state.controlePrompts)
   const jogandoRef = useRef(false)
 
   useInputIntents({
@@ -112,6 +122,7 @@ export default function App(): JSX.Element {
       <CatalogScreen
         catalogo={state.catalogo}
         focusedGameId={focusedJogo.id}
+        prompts={prompts}
         onFocusGame={(id) => dispatch({ type: 'focus-game', id })}
         onConfirm={() => dispatch({ type: 'set-mode', mode: 'detail' })}
       />
@@ -122,6 +133,7 @@ export default function App(): JSX.Element {
         jogo={focusedJogo}
         versao={state.catalogo.sincronizadoEm}
         ocupado={state.mode === 'launching'}
+        prompts={prompts}
         onBack={() => dispatch({ type: 'set-mode', mode: 'catalog' })}
         onPlay={jogar}
       />

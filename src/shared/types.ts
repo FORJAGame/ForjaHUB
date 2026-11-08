@@ -33,6 +33,14 @@ export const LAUNCH_ERROR_CODES = [
 
 export type LaunchErrorCode = (typeof LAUNCH_ERROR_CODES)[number]
 
+/** Família de prompts de Controle escolhida no Setup; teclado e mouse sempre mostram os de PC. */
+export const CONTROLE_PROMPTS = ['xbox', 'playstation'] as const
+
+export type ControlePrompts = (typeof CONTROLE_PROMPTS)[number]
+
+/** Estação sem escolha gravada (antes do Setup ou `station.json` anterior ao campo). */
+export const CONTROLE_PROMPTS_PADRAO: ControlePrompts = 'xbox'
+
 export interface KioskState {
   mode: Mode
   /** Placa de erro coexiste com qualquer `mode` — não é um estado do union. */
@@ -46,6 +54,8 @@ export interface KioskState {
   catalogo: Catalogo | null
   /** Id do Jogo em foco na fileira; `null` só quando não há Catálogo. */
   focusedGameId: string | null
+  /** Família dos prompts de Controle no rodapé, vinda do `station.json`. */
+  controlePrompts: ControlePrompts
 }
 
 /**
@@ -103,6 +113,7 @@ export interface ConfigEstacao {
   estacaoId: string
   eventoId: string
   jogosSelecionados: string[]
+  controlePrompts: ControlePrompts
   schemaVersion: number
 }
 

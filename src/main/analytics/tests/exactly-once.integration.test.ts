@@ -31,7 +31,8 @@ const CONFIG: ConfigEstacao = {
   estacaoId: 'est-1',
   eventoId: 'ev-1',
   jogosSelecionados: ['jogo-a', 'jogo-b'],
-  schemaVersion: 1
+  controlePrompts: 'xbox',
+  schemaVersion: 2
 }
 
 /** Só o cliente Supabase é fake: a tabela `sessoes` vive em memória (PK id, ON CONFLICT DO NOTHING). */

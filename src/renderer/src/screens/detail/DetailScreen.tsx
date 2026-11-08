@@ -2,8 +2,9 @@ import { type JSX, type ReactNode } from 'react'
 import type { Jogo } from '@shared/types'
 import { mediaUrl } from '@shared/media'
 import { FORJA_MARK_URL } from '../../design/assets'
-import { FallbackImage, ForjaMark, GrainOverlay, Stage } from '../../design/primitives'
+import { FallbackImage, ForjaMark, GrainOverlay, PromptBar, Stage } from '../../design/primitives'
 import { useInputIntents } from '../../input/hooks/use-input-intents'
+import type { PromptSet } from '../../input/prompts'
 import { ModalidadeIcon } from '../catalog/GameCard'
 import { detailMediaTipo, temQr } from './detail-media'
 import LaunchOverlay from './LaunchOverlay'
@@ -14,6 +15,8 @@ export interface DetailScreenProps {
   versao: string
   /** Põe o `LaunchOverlay` na frente e ignora intents e cliques. */
   ocupado: boolean
+  /** Prompts do rodapé no dispositivo em uso. */
+  prompts: PromptSet
   onBack: () => void
   onPlay: () => void
 }
@@ -45,7 +48,7 @@ function SeloQr({ jogo, versao }: { jogo: Jogo; versao: string }): JSX.Element {
   )
 }
 
-export default function DetailScreen({ jogo, versao, ocupado, onBack, onPlay }: DetailScreenProps): JSX.Element {
+export default function DetailScreen({ jogo, versao, ocupado, prompts, onBack, onPlay }: DetailScreenProps): JSX.Element {
   const logoSrc = mediaUrl(jogo.id, 'logo', versao)
   const mediaTipo = detailMediaTipo(jogo)
 
@@ -160,6 +163,15 @@ export default function DetailScreen({ jogo, versao, ocupado, onBack, onPlay }: 
           {temQr(jogo) && <SeloQr jogo={jogo} versao={versao} />}
         </div>
       )}
+
+      <PromptBar
+        set={prompts}
+        itens={[
+          { acao: 'confirmar', rotulo: 'Jogar' },
+          { acao: 'voltar', rotulo: 'Voltar' }
+        ]}
+        className="absolute bottom-[30px] right-[72px] z-30"
+      />
 
       {ocupado && <LaunchOverlay jogo={jogo} versao={versao} />}
     </Stage>

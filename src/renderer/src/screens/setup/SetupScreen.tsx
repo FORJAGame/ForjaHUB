@@ -1,9 +1,10 @@
 import { type FormEvent, type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { normalizeId } from '@shared/normalize'
-import type { Jogo } from '@shared/types'
+import { CONTROLE_PROMPTS_PADRAO, type ControlePrompts, type Jogo } from '@shared/types'
 import { FORJA_MARK_URL } from '../../design/assets'
 import { EASE_FORJA, RISE_IN, shake } from '../../design/motion'
 import { ErrorPlate, GrainOverlay, TextField } from '../../design/primitives'
+import ControlePromptsField from './ControlePromptsField'
 import CoverTile from './CoverTile'
 
 interface SetupScreenProps {
@@ -32,7 +33,7 @@ const WELCOME_MS = 2600
 const LEAVE_MS = 700
 const LOGO_MOVE_MS = 950
 
-const TILES_START_MS = 440
+const TILES_START_MS = 510
 const TILE_STAGGER_MS = 70
 
 function wait(ms: number): Promise<void> {
@@ -53,6 +54,7 @@ export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Eleme
   const [estacaoId, setEstacaoId] = useState('')
   const [eventoId, setEventoId] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [controlePrompts, setControlePrompts] = useState<ControlePrompts>(CONTROLE_PROMPTS_PADRAO)
   const [submitting, setSubmitting] = useState(false)
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('form')
@@ -137,7 +139,8 @@ export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Eleme
       const res = await window.forjaAPI.configSetupSubmit({
         estacaoId: normalizeId(estacaoId),
         eventoId: normalizeId(eventoId),
-        jogosSelecionados: [...selected]
+        jogosSelecionados: [...selected],
+        controlePrompts
       })
       if (!res.ok) {
         setErrorCode(res.code)
@@ -224,8 +227,12 @@ export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Eleme
                   </div>
                 </div>
 
+                <div className={`w-full ${RISE_IN}`} style={{ animationDelay: '400ms' }}>
+                  <ControlePromptsField value={controlePrompts} onChange={setControlePrompts} />
+                </div>
+
                 <section aria-labelledby="setup-jogos" className="flex w-full flex-col gap-5">
-                  <div className={`flex items-baseline justify-between ${RISE_IN}`} style={{ animationDelay: '400ms' }}>
+                  <div className={`flex items-baseline justify-between ${RISE_IN}`} style={{ animationDelay: '470ms' }}>
                     <h2 id="setup-jogos" className="text-body m-0 text-ink-primary">
                       Jogos do evento
                     </h2>
