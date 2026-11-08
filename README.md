@@ -55,9 +55,10 @@ O que já está implementado e testado:
 - **Cache offline**: o catálogo validado (`catalog.json` + mídia) é gravado
   em `userData/catalog/current/` por troca atômica de diretório.
 - **Setup de estação**: na primeira execução, a `SetupScreen` lista os Jogos
-  do catálogo para escolher quais a estação exibe, e grava `station.json`
-  com escrita atômica. Se nenhum Jogo selecionado existir mais no catálogo,
-  o Hub volta para o setup.
+  do catálogo para escolher quais a estação exibe e a família de prompts do
+  controle (Xbox ou PlayStation), e grava `station.json` com escrita atômica.
+  Um `station.json` da versão anterior migra para Xbox. Se nenhum Jogo
+  selecionado existir mais no catálogo, o Hub volta para o setup.
 - **Tela de catálogo (kiosk)**: vitrine com arte-herói do Jogo em foco, logo
   com fallback para o título, chips de ano, estúdio e gênero, e uma fileira
   rolável de cards com navegação circular (o foco dá a volta), por controle,
@@ -66,6 +67,11 @@ O que já está implementado e testado:
 - **Base de input**: captura de teclado e gamepad (XInput) no renderer, com
   guarda para não interceptar teclas quando um elemento editável está
   focado, e cursor que some quando fica parado.
+- **Prompts de input no rodapé**: catálogo e detalhe mostram as ações da
+  tela no ícone do último dispositivo usado: controle na família escolhida no
+  setup, teclado ou mouse. Ícones de
+  [Mr. Breakfast's Free Prompts](https://github.com/mr-breakfast/mrbreakfasts_free_prompts)
+  (CC0), em `public/prompts/`.
 - **Launcher de processo**: módulo no main para abrir executáveis locais e
   monitorar o fechamento (evento de saída do processo ou polling por nome
   do processo alvo).
