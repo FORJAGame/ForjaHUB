@@ -1,17 +1,19 @@
 import { z } from 'zod'
-import type { CommandResult } from '@shared/types'
+import { CONTROLE_PROMPTS, type CommandResult, type ControlePrompts } from '@shared/types'
 import { normalizeId } from '@shared/normalize'
 
 const RawSetupSubmit = z.object({
   estacaoId: z.string(),
   eventoId: z.string(),
-  jogosSelecionados: z.array(z.string().min(1))
+  jogosSelecionados: z.array(z.string().min(1)),
+  controlePrompts: z.enum(CONTROLE_PROMPTS)
 })
 
 export interface SetupSubmit {
   estacaoId: string
   eventoId: string
   jogosSelecionados: string[]
+  controlePrompts: ControlePrompts
 }
 
 export function validateSetupSubmit(input: unknown, rosterIds: string[]): CommandResult<SetupSubmit> {
@@ -30,5 +32,5 @@ export function validateSetupSubmit(input: unknown, rosterIds: string[]): Comman
     return { ok: false, code: 'SETUP_JOGO_DESCONHECIDO' }
   }
 
-  return { ok: true, estacaoId, eventoId, jogosSelecionados }
+  return { ok: true, estacaoId, eventoId, jogosSelecionados, controlePrompts: parsed.data.controlePrompts }
 }

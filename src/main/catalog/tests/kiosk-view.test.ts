@@ -51,7 +51,13 @@ describe('kioskView', () => {
 })
 
 function config(jogosSelecionados: string[]): ConfigEstacao {
-  return { estacaoId: 'tv-1', eventoId: 'evento-1', jogosSelecionados, schemaVersion: CURRENT_SCHEMA_VERSION }
+  return {
+    estacaoId: 'tv-1',
+    eventoId: 'evento-1',
+    jogosSelecionados,
+    controlePrompts: 'xbox',
+    schemaVersion: CURRENT_SCHEMA_VERSION
+  }
 }
 
 describe('kioskCatalogUpdate', () => {

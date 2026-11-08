@@ -21,7 +21,8 @@ const config: ConfigEstacao = {
   estacaoId: 'tv-principal',
   eventoId: 'ev-1',
   jogosSelecionados: ['jogo-a'],
-  schemaVersion: 1
+  controlePrompts: 'xbox',
+  schemaVersion: 2
 }
 
 describe('bootAnalytics', () => {

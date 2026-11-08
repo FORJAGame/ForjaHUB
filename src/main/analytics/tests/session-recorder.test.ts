@@ -13,7 +13,8 @@ const CONFIG: ConfigEstacao = {
   estacaoId: 'estacao-1',
   eventoId: 'evento-1',
   jogosSelecionados: ['jogo-a'],
-  schemaVersion: 1
+  controlePrompts: 'xbox',
+  schemaVersion: 2
 }
 
 interface SpoolFake {

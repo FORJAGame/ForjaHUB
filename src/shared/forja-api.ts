@@ -1,21 +1,30 @@
-import type { Catalogo, CommandResult, Jogo, Mode } from './types'
+import type { Catalogo, CommandResult, ControlePrompts, Jogo, Mode } from './types'
 
 export interface SetupSubmitInput {
   estacaoId: string
   eventoId: string
   jogosSelecionados: string[]
+  controlePrompts: ControlePrompts
 }
+
+/*
+ * `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`.
+ * `focusedGameId` é o último Jogo lançado, se ainda estiver na view: a volta de uma partida cai no card jogado.
+ * `controlePrompts` é a família gravada no Setup (ou a padrão, sem `station.json`).
+ */
+export type HydrateResult = CommandResult<{
+  mode: Mode
+  catalogo: Catalogo | null
+  focusedGameId: string | null
+  controlePrompts: ControlePrompts
+}>
 
 /**
  * Superfície da ponte tipada única.
  * Ainda expõe só o mínimo do shell Kiosk + Setup da Estação.
  */
 export interface ForjaAPI {
-  /*
-   * `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`.
-   * `focusedGameId` é o último Jogo lançado, se ainda estiver na view: a volta de uma partida cai no card jogado.
-   */
-  hydrate(): Promise<CommandResult<{ mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }>>
+  hydrate(): Promise<HydrateResult>
 
   /* Assina o evento `operator:open` (Ctrl+Shift+O). Retorna a função de cleanup. */
   onOperatorOpen(cb: () => void): () => void
