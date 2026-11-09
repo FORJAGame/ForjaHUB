@@ -1,6 +1,6 @@
 import type { Intent } from './types'
 
-const DEADZONE = 0.5
+export const DEADZONE = 0.5
 
 /** Forma mínima que o `Gamepad` real do DOM satisfaz */
 export interface GamepadLike {
