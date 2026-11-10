@@ -84,13 +84,18 @@ O que já está implementado e testado:
   (Jogo, estação, evento, início, duração) gravado em `userData/analytics/`
   e enviado em segundo plano para a tabela `sessoes` (veja
   [Analytics](#analytics)).
+- **Modo atração**: depois de 60s sem input no catálogo ou no detalhe, o Hub
+  cicla as artes-herói dos Jogos em Ken Burns, com o logo por cima e um card
+  FORJA a cada 4 Jogos e a chamada "Aperte qualquer botão para jogar". Qualquer
+  tecla, botão, eixo ou mouse volta ao catálogo, com o foco no Jogo que estava
+  na tela.
 
 O que **ainda não existe**:
 
 - Download e extração do `.zip` do Jogo: o build entra à mão, em
   `<userData>/games/<id>/` (veja [Instalando um Jogo à mão](#instalando-um-jogo-à-mão)).
-- Modo atração, painel do operador (`Ctrl+Shift+O` só troca para um
-  placeholder), busca e filtros.
+- Painel do operador (`Ctrl+Shift+O` só troca para um placeholder), busca e
+  filtros.
 - Empacotamento e instalador testados para Windows (alvo principal).
 
 ## Instalando um Jogo à mão
