@@ -193,3 +193,27 @@ describe('reducer — sequências do ciclo JOGAR', () => {
     expect(s.focusedGameId).toBeNull()
   })
 })
+
+describe('reducer — sequência da Atração', () => {
+  it('detalhe com placa → atração → Jogo em foco sai do Catálogo → saída foca o 1º sem placa', () => {
+    const emDetalhe = aplicar(
+      { ...initialState, mode: 'detail', catalogo: catalogo('rebite', 'corvo'), focusedGameId: 'corvo' },
+      { type: 'launch-start' },
+      { type: 'launch-failed', code: 'FALHA_AO_ABRIR' }
+    )
+    expect(emDetalhe).toMatchObject({ mode: 'detail', errorPlate: 'FALHA_AO_ABRIR' })
+
+    const naAtracao = aplicar(emDetalhe, { type: 'attract-start' })
+    expect(naAtracao).toMatchObject({ mode: 'attract', errorPlate: null, focusedGameId: 'corvo' })
+
+    const s = aplicar(
+      naAtracao,
+      { type: 'catalog-updated', catalogo: catalogo('rebite') },
+      { type: 'attract-end', focusedGameId: 'corvo' }
+    )
+
+    expect(s.mode).toBe('catalog')
+    expect(s.errorPlate).toBeNull()
+    expect(s.focusedGameId).toBe('rebite')
+  })
+})

@@ -37,6 +37,8 @@ export type Action =
   | { type: 'focus-game'; id: string }
   | { type: 'launch-start' }
   | { type: 'launch-failed'; code: string }
+  | { type: 'attract-start' }
+  | { type: 'attract-end'; focusedGameId: string | null }
 
 /** Sempre exatamente um Jogo em foco: mantém o atual se ainda existir, senão o 1º. */
 function reconcileFocus(current: string | null, catalogo: Catalogo | null): string | null {
@@ -92,6 +94,22 @@ export function reducer(state: KioskState, action: Action): KioskState {
       // A falha do invoke devolve a Detalhe com a placa do código.
       if (state.mode !== 'launching') return state
       return { ...state, mode: 'detail', errorPlate: action.code }
+    case 'attract-start':
+      // Atração só a partir da vitrine; nunca com o JOGAR em curso nem sem Jogo.
+      if (state.mode !== 'catalog' && state.mode !== 'detail') return state
+      if (!state.catalogo || state.catalogo.jogos.length === 0) return state
+      return { ...state, mode: 'attract', errorPlate: null }
+    case 'attract-end': {
+      // A saída da vitrine sempre cai no Catálogo, com o foco que o Jogo indicou.
+      if (state.mode !== 'attract') return state
+      const jogos = state.catalogo?.jogos ?? []
+      const focoValido = action.focusedGameId !== null && jogos.some((jogo) => jogo.id === action.focusedGameId)
+      return {
+        ...state,
+        mode: 'catalog',
+        focusedGameId: focoValido ? action.focusedGameId : reconcileFocus(state.focusedGameId, state.catalogo)
+      }
+    }
     default:
       action satisfies never
       return state
