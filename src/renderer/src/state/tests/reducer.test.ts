@@ -290,6 +290,84 @@ describe('reducer — ciclo da Detalhe', () => {
   })
 })
 
+describe('reducer — attract', () => {
+  const comCatalogo = { ...base, catalogo: catalogo('a', 'b'), focusedGameId: 'a' }
+
+  it('entra na Atração a partir do Catálogo e limpa a placa', () => {
+    const next = reducer(comCatalogo, { type: 'attract-start' })
+    expect(next.mode).toBe('attract')
+    expect(next.errorPlate).toBeNull()
+    expect(next.focusedGameId).toBe('a')
+  })
+
+  it('entra na Atração a partir da Detalhe e limpa a placa', () => {
+    const state = { ...comCatalogo, mode: 'detail' as Mode, errorPlate: 'EXE_FALHOU' }
+    const next = reducer(state, { type: 'attract-start' })
+    expect(next.mode).toBe('attract')
+    expect(next.errorPlate).toBeNull()
+  })
+
+  it.each(['boot', 'setup', 'launching', 'operator', 'attract'] as const)(
+    'attract-start fora da vitrine (%s) é no-op (mesma referência)',
+    (mode) => {
+      const state = { ...comCatalogo, mode }
+      expect(reducer(state, { type: 'attract-start' })).toBe(state)
+    }
+  )
+
+  it.each(['catalog', 'detail'] as const)(
+    'attract-start em %s com Catálogo vazio é no-op (mesma referência)',
+    (mode) => {
+      const state = { ...base, mode, catalogo: catalogo() }
+      expect(reducer(state, { type: 'attract-start' })).toBe(state)
+    }
+  )
+
+  it.each(['catalog', 'detail'] as const)(
+    'attract-start em %s sem Catálogo é no-op (mesma referência)',
+    (mode) => {
+      const state = { ...base, mode }
+      expect(reducer(state, { type: 'attract-start' })).toBe(state)
+    }
+  )
+
+  it('attract-end foca o Jogo indicado pela vitrine e volta ao Catálogo', () => {
+    const state = { ...comCatalogo, mode: 'attract' as Mode }
+    const next = reducer(state, { type: 'attract-end', focusedGameId: 'b' })
+    expect(next.mode).toBe('catalog')
+    expect(next.focusedGameId).toBe('b')
+  })
+
+  it('attract-end com Jogo inexistente reconcilia o foco com o Catálogo', () => {
+    const state = { ...comCatalogo, mode: 'attract' as Mode, focusedGameId: 'b' }
+    const next = reducer(state, { type: 'attract-end', focusedGameId: 'fantasma' })
+    expect(next.mode).toBe('catalog')
+    expect(next.focusedGameId).toBe('b')
+  })
+
+  it('attract-end com id removido do Catálogo cai no 1º Jogo', () => {
+    const state = { ...comCatalogo, mode: 'attract' as Mode, catalogo: catalogo('a', 'c') }
+    const next = reducer(state, { type: 'attract-end', focusedGameId: 'b' })
+    expect(next.mode).toBe('catalog')
+    expect(next.focusedGameId).toBe('a')
+  })
+
+  it('attract-end com null mantém o foco atual', () => {
+    const state = { ...comCatalogo, mode: 'attract' as Mode, focusedGameId: 'b' }
+    const next = reducer(state, { type: 'attract-end', focusedGameId: null })
+    expect(next.mode).toBe('catalog')
+    expect(next.focusedGameId).toBe('b')
+  })
+
+  it.each(['boot', 'setup', 'catalog', 'detail', 'launching', 'operator'] as const)(
+    'attract-end fora da Atração (%s) é no-op (mesma referência)',
+    (mode) => {
+      const state = { ...comCatalogo, mode }
+      expect(reducer(state, { type: 'attract-end', focusedGameId: 'b' })).toBe(state)
+    }
+  )
+})
+
 describe('reducer — ação desconhecida', () => {
   it('retorna o estado inalterado (mesma referência)', () => {
     const next = reducer(base, { type: 'nao-existe' } as unknown as Action)

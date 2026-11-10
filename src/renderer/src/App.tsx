@@ -1,11 +1,14 @@
 import { type Dispatch, type JSX, useEffect, useReducer, useRef, useState } from 'react'
 import type { ForjaAPI } from '@shared/forja-api'
 import { BootScreen, ErrorPlate } from './design/primitives'
+import Toasty from './easter-eggs/Toasty'
 import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
+import { useIdleTimer } from './input/hooks/use-idle-timer'
 import { useInputIntents } from './input/hooks/use-input-intents'
 import { useLastInputDevice } from './input/hooks/use-last-input-device'
 import { promptSet } from './input/prompts'
+import AttractScreen from './screens/attract/AttractScreen'
 import CatalogScreen from './screens/catalog/CatalogScreen'
 import DetailScreen from './screens/detail/DetailScreen'
 import SetupScreen from './screens/setup/SetupScreen'
@@ -14,6 +17,9 @@ import { type Action, initialState, reducer } from './state/reducer'
 
 /** A placa de falha do JOGAR some sozinha depois disso. */
 const PLACA_MS = 5000
+
+/** Sem input no Catálogo ou na Detalhe, a Estação vira vitrine. */
+const ATRACAO_OCIOSO_MS = 60_000
 
 function runHydrate(api: ForjaAPI, dispatch: Dispatch<Action>, alive: () => boolean = () => true): Promise<void> {
   return api
@@ -41,6 +47,8 @@ export default function App(): JSX.Element {
   const cursorVisible = useCursorIdle()
   const prompts = promptSet(useLastInputDevice(), state.controlePrompts)
   const jogandoRef = useRef(false)
+  const [toasty, setToasty] = useState(0)
+  const dispararToasty = (): void => setToasty((disparo) => disparo + 1)
 
   useInputIntents({
     onConnectedChange: (connected) => {
@@ -78,10 +86,25 @@ export default function App(): JSX.Element {
     return () => clearTimeout(timer)
   }, [state.errorPlate])
 
+  useIdleTimer({
+    ativo: state.mode === 'catalog' || state.mode === 'detail',
+    chave: state.mode,
+    ms: ATRACAO_OCIOSO_MS,
+    onIdle: () => dispatch({ type: 'attract-start' })
+  })
+
   const errorPlate = state.errorPlate && <ErrorPlate message={errorCopy(state.errorPlate)} />
 
+  // O Toasty fica sempre na mesma posição da árvore: trocar de tela não o remonta (nem repete o som).
+  const comToasty = (conteudo: JSX.Element): JSX.Element => (
+    <>
+      {conteudo}
+      <Toasty disparo={toasty} />
+    </>
+  )
+
   if (state.mode === 'boot') {
-    return (
+    return comToasty(
       <>
         <BootScreen />
         {errorPlate}
@@ -90,7 +113,7 @@ export default function App(): JSX.Element {
   }
 
   if (state.mode === 'setup') {
-    return (
+    return comToasty(
       <>
         <SetupScreen onComplete={() => runHydrate(window.forjaAPI, dispatch)} />
         {errorPlate}
@@ -138,8 +161,16 @@ export default function App(): JSX.Element {
         onPlay={jogar}
       />
     )
+  } else if (state.mode === 'attract' && state.catalogo) {
+    screen = (
+      <AttractScreen
+        catalogo={state.catalogo}
+        onExit={(id) => dispatch({ type: 'attract-end', focusedGameId: id })}
+        onKonami={dispararToasty}
+      />
+    )
   } else {
-    // Modos ainda sem tela (Atração e Operador).
+    // Modo ainda sem tela (Operador).
     screen = (
       <main className="flex h-full select-none flex-col items-center justify-center gap-2 text-ink-primary">
         <p className="text-label-caps m-0 text-ink-secondary">FORJA HUB</p>
@@ -148,7 +179,7 @@ export default function App(): JSX.Element {
     )
   }
 
-  return (
+  return comToasty(
     // Monta ao sair do boot/Setup: o catálogo acende a partir do `surface-base` em vez de cortar seco.
     <div
       className="h-full animate-[forja-fade-in_700ms_ease-out]"
