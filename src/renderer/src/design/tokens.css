@@ -392,6 +392,20 @@
   }
 }
 
+/* Toasty: sobe do canto inferior-direito, segura e volta. */
+@keyframes forja-toasty {
+  0% {
+    transform: translate(60%, 100%);
+  }
+  14%,
+  78% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(60%, 100%);
+  }
+}
+
 /* Mazelinha atravessando o palco de 1920px, um sentido por keyframe. */
 @keyframes forja-mazelinha-direita {
   from {
