@@ -351,3 +351,62 @@
     transform: none;
   }
 }
+
+/*
+ * Ken Burns do Modo Atração: pan/zoom lento com a escala sempre acima da caixa,
+ * para nenhuma borda aparecer. Quatro sentidos alternados.
+ */
+@keyframes forja-kenburns-1 {
+  from {
+    transform: scale(1.04) translate(-1.5%, 1%);
+  }
+  to {
+    transform: scale(1.16) translate(1.5%, -1%);
+  }
+}
+
+@keyframes forja-kenburns-2 {
+  from {
+    transform: scale(1.18) translate(1.5%, -1%);
+  }
+  to {
+    transform: scale(1.06) translate(-1.5%, 1%);
+  }
+}
+
+@keyframes forja-kenburns-3 {
+  from {
+    transform: scale(1.06) translate(0, 1.5%);
+  }
+  to {
+    transform: scale(1.14) translate(0, -1.5%);
+  }
+}
+
+@keyframes forja-kenburns-4 {
+  from {
+    transform: scale(1.16) translate(-1.5%, -1%);
+  }
+  to {
+    transform: scale(1.04) translate(1.5%, 1%);
+  }
+}
+
+/* Mazelinha atravessando o palco de 1920px, um sentido por keyframe. */
+@keyframes forja-mazelinha-direita {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(1920px);
+  }
+}
+
+@keyframes forja-mazelinha-esquerda {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-1920px);
+  }
+}
