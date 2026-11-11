@@ -22,7 +22,8 @@ export type FlushResult = CommandResult<{ enviados: number; pendentes: number }>
 export interface AnalyticsFlusher {
   flushAgora(): Promise<FlushResult>
   agendar(): void
-  estado(): { ultimoFlushOk: boolean | null; ultimoFlushEm: string | null }
+  /** `ultimoCodigo`: código da última falha; `null` se o último envio deu certo ou nunca houve. */
+  estado(): { ultimoFlushOk: boolean | null; ultimoFlushEm: string | null; ultimoCodigo: string | null }
   parar(): void
 }
 
