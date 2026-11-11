@@ -89,13 +89,16 @@ O que já está implementado e testado:
   FORJA a cada 4 Jogos e a chamada "Aperte qualquer botão para jogar". Qualquer
   tecla, botão, eixo ou mouse volta ao catálogo, com o foco no Jogo que estava
   na tela.
+- **Tela de Status do Operador** (`Ctrl+Shift+O`, só teclado e mouse): ids
+  da estação e do evento, última sincronização, próxima tentativa automática,
+  Sessões aguardando envio, "Forçar sincronização", "Reabrir setup", fim do
+  `hub.log` e mudo dos SFX (veja [Tela de Status e hub.log](#tela-de-status-e-hublog)).
 
 O que **ainda não existe**:
 
 - Download e extração do `.zip` do Jogo: o build entra à mão, em
   `<userData>/games/<id>/` (veja [Instalando um Jogo à mão](#instalando-um-jogo-à-mão)).
-- Painel do operador (`Ctrl+Shift+O` só troca para um placeholder), busca e
-  filtros.
+- Busca e filtros.
 - Empacotamento e instalador testados para Windows (alvo principal).
 
 ## Instalando um Jogo à mão
@@ -172,6 +175,23 @@ O main confere a rede a cada 10 s (`net.isOnline()`). Quando ela volta, as
 Sessões pendentes e um sync de Catálogo que tinha falhado saem na hora, sem
 esperar o backoff.
 
+## Tela de Status e hub.log
+
+`Ctrl+Shift+O` abre a Tela de Status em qualquer tela, menos durante a
+abertura de um Jogo. `Esc` ou "Voltar" retornam ao catálogo. "Forçar
+sincronização" usa o mesmo sync do boot: se um sync já está rodando, espera o
+resultado dele; se dá certo, cancela a nova tentativa automática que estava
+agendada e o catálogo novo aparece sem reiniciar. Em seguida as Sessões
+pendentes são enviadas. "Reabrir setup" abre o setup preenchido com a
+configuração atual (troca de evento). O mudo dos SFX fica em
+`userData/operator-prefs.json` e vale também depois de reiniciar.
+
+O `userData/hub.log` registra o resultado de cada sync, início e fim de cada
+Sessão de Jogo, erros ao abrir um Jogo e falhas de envio das Sessões, uma linha
+por evento (`ISO NIVEL [origem] mensagem`). Ao passar de 5 MB vira
+`hub.log.1` (só uma geração antiga). A Tela de Status mostra as últimas 200
+linhas e o caminho do arquivo.
+
 # Stack
 
 - [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
@@ -233,13 +253,15 @@ ForjaHUB/
 │   │   ├── config/     # URL/chave do Supabase e handlers IPC de setup/hydrate
 │   │   ├── supabase/   # Cliente supabase-js (tabelas e bucket usados pelo Hub)
 │   │   ├── analytics/  # Spool em disco, registro de Sessão e envio para `sessoes`
-│   │   ├── store/      # station.json e escrita atômica (arquivo e diretório)
+│   │   ├── log/        # hub.log com rotação
+│   │   ├── operator/   # Comandos da Tela de Status
+│   │   ├── store/      # station.json, preferências do operador e escrita atômica
 │   │   ├── launcher/   # Spawn e monitoramento de processo do Jogo
 │   │   └── index.ts    # Janela kiosk, protocolo, IPC e atalhos
 │   ├── preload/        # contextBridge / ponte forjaAPI
 │   ├── renderer/src/
 │   │   ├── design/     # Tokens, fontes e primitivos visuais
-│   │   ├── screens/    # setup, catalog, detail
+│   │   ├── screens/    # setup, catalog, detail, attract, operator
 │   │   ├── input/      # Teclado, gamepad e foco
 │   │   └── state/      # Reducer da aplicação
 │   └── shared/         # Tipos, canais IPC, forjaAPI e mediaUrl
