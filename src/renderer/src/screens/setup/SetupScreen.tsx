@@ -1,15 +1,19 @@
 import { type FormEvent, type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { normalizeId } from '@shared/normalize'
-import { CONTROLE_PROMPTS_PADRAO, type ControlePrompts, type Jogo } from '@shared/types'
+import { CONTROLE_PROMPTS_PADRAO, type ControlePrompts, type Jogo, type OperatorStatus } from '@shared/types'
 import { FORJA_MARK_URL } from '../../design/assets'
 import { EASE_FORJA, RISE_IN, shake } from '../../design/motion'
 import { ErrorPlate, GrainOverlay, TextField } from '../../design/primitives'
 import ControlePromptsField from './ControlePromptsField'
 import CoverTile from './CoverTile'
 
+export type SetupInicial = NonNullable<OperatorStatus['config']>
+
 interface SetupScreenProps {
   /** Resolve só depois do hydrate: o form fica travado até lá. */
   onComplete: () => Promise<void>
+  /** Config já gravada; reabrir o Setup começa do estado atual da Estação. */
+  inicial?: SetupInicial
 }
 
 const ERROR_COPY: Record<string, string> = {
@@ -48,18 +52,22 @@ function savedAs(raw: string, idle: string): string {
   return id && id !== raw ? `Salvo como ${id}` : idle
 }
 
-export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Element {
+export default function SetupScreen({ onComplete, inicial }: SetupScreenProps): JSX.Element {
   const [roster, setRoster] = useState<Jogo[] | null>(null)
   const [versao, setVersao] = useState('')
-  const [estacaoId, setEstacaoId] = useState('')
-  const [eventoId, setEventoId] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [controlePrompts, setControlePrompts] = useState<ControlePrompts>(CONTROLE_PROMPTS_PADRAO)
+  const [estacaoId, setEstacaoId] = useState(inicial?.estacaoId ?? '')
+  const [eventoId, setEventoId] = useState(inicial?.eventoId ?? '')
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(inicial?.jogosSelecionados ?? []))
+  const [controlePrompts, setControlePrompts] = useState<ControlePrompts>(
+    inicial?.controlePrompts ?? CONTROLE_PROMPTS_PADRAO
+  )
   const [submitting, setSubmitting] = useState(false)
   const [errorCode, setErrorCode] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('form')
   const submittingRef = useRef(false)
   const aliveRef = useRef(true)
+  // O App limpa `setupInicial` ao concluir: o roster não pode re-rodar no meio do envio.
+  const inicialRef = useRef(inicial)
   const submitRef = useRef<HTMLButtonElement>(null)
   const logoRef = useRef<HTMLImageElement>(null)
   const logoTopRef = useRef<number | null>(null)
@@ -76,6 +84,14 @@ export default function SetupScreen({ onComplete }: SetupScreenProps): JSX.Eleme
         if (res.ok) {
           setRoster([...res.roster].sort((a, b) => a.id.localeCompare(b.id)))
           setVersao(res.sincronizadoEm)
+          // Config reaberta pode apontar para Jogo que saiu do roster: a seleção acompanha o roster.
+          if (inicialRef.current) {
+            const ids = new Set(res.roster.map((jogo) => jogo.id))
+            setSelected((prev) => {
+              const next = new Set([...prev].filter((id) => ids.has(id)))
+              return next.size === prev.size ? prev : next
+            })
+          }
         } else {
           setErrorCode(res.code)
         }

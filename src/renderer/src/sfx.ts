@@ -11,6 +11,17 @@ const BAND_HZ = 2600
 let ctx: AudioContext | null = null
 let noise: AudioBuffer | null = null
 
+/** Preferência do Operador; o `main` a persiste e o App a aplica ao hidratar. */
+let mudo = false
+
+export function setSfxMudo(valor: boolean): void {
+  mudo = valor
+}
+
+export function sfxMudo(): boolean {
+  return mudo
+}
+
 function noiseBuffer(audio: AudioContext): AudioBuffer {
   const length = Math.ceil(audio.sampleRate * DURATION_S)
   const buffer = audio.createBuffer(1, length, audio.sampleRate)
@@ -20,6 +31,7 @@ function noiseBuffer(audio: AudioContext): AudioBuffer {
 }
 
 export function playFocusClick(): void {
+  if (mudo) return
   try {
     ctx ??= new AudioContext()
     if (ctx.state === 'suspended') void ctx.resume()

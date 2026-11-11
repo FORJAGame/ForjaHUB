@@ -2,6 +2,9 @@
 // apontaria pra raiz do disco. O `BASE_URL` é `./` no build e `/` em dev.
 export const FORJA_MARK_URL = `${import.meta.env.BASE_URL}forja-mark.svg`
 
+/** Marca CESAR School em `public/`; pintada por máscara, não usada como `<img>`. */
+export const CESAR_LOGO_URL = `${import.meta.env.BASE_URL}cesar-school-logo.png`
+
 /** Prompt de input em `public/prompts/` (Mr. Breakfast's Free Prompts, CC0). */
 export function promptUrl(nome: string): string {
   return `${import.meta.env.BASE_URL}prompts/${nome}.svg`

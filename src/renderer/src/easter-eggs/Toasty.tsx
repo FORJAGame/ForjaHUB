@@ -1,6 +1,7 @@
 import { type JSX, useEffect } from 'react'
 import { easterEggUrl } from '../design/assets'
 import { FallbackImage } from '../design/primitives'
+import { sfxMudo } from '../sfx'
 
 const TOASTY_IMG_URL = easterEggUrl('toasty.png')
 const TOASTY_SOM_URL = easterEggUrl('toasty.mp3')
@@ -19,7 +20,7 @@ interface ToastyProps {
  */
 export default function Toasty({ disparo }: ToastyProps): JSX.Element | null {
   useEffect(() => {
-    if (disparo === 0) return
+    if (disparo === 0 || sfxMudo()) return
     let audio: HTMLAudioElement | null = null
     try {
       audio = new Audio(TOASTY_SOM_URL)
