@@ -406,6 +406,16 @@
   }
 }
 
+/* Tira de sprite: anda um quadro por vez até o último (`--sprite-fim`), com `steps()`. */
+@keyframes forja-sprite {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--sprite-fim));
+  }
+}
+
 /* Mazelinha atravessando o palco de 1920px, um sentido por keyframe. */
 @keyframes forja-mazelinha-direita {
   from {

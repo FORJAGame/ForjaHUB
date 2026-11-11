@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Mazela (mazelinha) - corrida para a direita. Spritesheet 32x8: 4 frames de 8x8 em linha, sem fundo. Corpo igual ao sprite parado; só pernas e pulo mudam. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="8" viewBox="0 0 32 8" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">
+	<!-- Frame 1: passada aberta, perna da frente esticada -->
+	<g transform="translate(0,0)">
+		<g fill="#ffffff">
+			<rect x="3" y="1" width="2" height="1"/>
+			<rect x="2" y="2" width="4" height="1"/>
+			<rect x="1" y="3" width="1" height="1"/>
+			<rect x="3" y="3" width="2" height="1"/>
+			<rect x="6" y="3" width="1" height="1"/>
+			<rect x="1" y="4" width="2" height="1"/>
+			<rect x="5" y="4" width="2" height="1"/>
+			<rect x="2" y="5" width="4" height="2"/>
+			<rect x="2" y="7" width="1" height="1"/>
+			<rect x="6" y="7" width="1" height="1"/>
+		</g>
+		<g fill="#000000">
+			<rect x="2" y="3" width="1" height="1"/>
+			<rect x="5" y="3" width="1" height="1"/>
+			<rect x="3" y="4" width="2" height="1"/>
+		</g>
+	</g>
+	<!-- Frame 2: corpo sobe 1px, apoio numa perna, joelho da frente levantado -->
+	<g transform="translate(8,-1)">
+		<g fill="#ffffff">
+			<rect x="3" y="1" width="2" height="1"/>
+			<rect x="2" y="2" width="4" height="1"/>
+			<rect x="1" y="3" width="1" height="1"/>
+			<rect x="3" y="3" width="2" height="1"/>
+			<rect x="6" y="3" width="1" height="1"/>
+			<rect x="1" y="4" width="2" height="1"/>
+			<rect x="5" y="4" width="2" height="1"/>
+			<rect x="2" y="5" width="4" height="2"/>
+			<rect x="3" y="7" width="1" height="2"/>
+			<rect x="5" y="7" width="1" height="1"/>
+		</g>
+		<g fill="#000000">
+			<rect x="2" y="3" width="1" height="1"/>
+			<rect x="5" y="3" width="1" height="1"/>
+			<rect x="3" y="4" width="2" height="1"/>
+		</g>
+	</g>
+	<!-- Frame 3: passada aberta, perna de trás esticada -->
+	<g transform="translate(16,0)">
+		<g fill="#ffffff">
+			<rect x="3" y="1" width="2" height="1"/>
+			<rect x="2" y="2" width="4" height="1"/>
+			<rect x="1" y="3" width="1" height="1"/>
+			<rect x="3" y="3" width="2" height="1"/>
+			<rect x="6" y="3" width="1" height="1"/>
+			<rect x="1" y="4" width="2" height="1"/>
+			<rect x="5" y="4" width="2" height="1"/>
+			<rect x="2" y="5" width="4" height="2"/>
+			<rect x="1" y="7" width="1" height="1"/>
+			<rect x="5" y="7" width="1" height="1"/>
+		</g>
+		<g fill="#000000">
+			<rect x="2" y="3" width="1" height="1"/>
+			<rect x="5" y="3" width="1" height="1"/>
+			<rect x="3" y="4" width="2" height="1"/>
+		</g>
+	</g>
+	<!-- Frame 4: corpo sobe 1px, apoio na outra perna, pé de trás levantado -->
+	<g transform="translate(24,-1)">
+		<g fill="#ffffff">
+			<rect x="3" y="1" width="2" height="1"/>
+			<rect x="2" y="2" width="4" height="1"/>
+			<rect x="1" y="3" width="1" height="1"/>
+			<rect x="3" y="3" width="2" height="1"/>
+			<rect x="6" y="3" width="1" height="1"/>
+			<rect x="1" y="4" width="2" height="1"/>
+			<rect x="5" y="4" width="2" height="1"/>
+			<rect x="2" y="5" width="4" height="2"/>
+			<rect x="4" y="7" width="1" height="2"/>
+			<rect x="2" y="7" width="1" height="1"/>
+		</g>
+		<g fill="#000000">
+			<rect x="2" y="3" width="1" height="1"/>
+			<rect x="5" y="3" width="1" height="1"/>
+			<rect x="3" y="4" width="2" height="1"/>
+		</g>
+	</g>
+</svg>
