@@ -6,6 +6,7 @@ import { shouldWarnDisconnected } from './input/connection'
 import { useCursorIdle } from './input/hooks/use-cursor-idle'
 import { useIdleTimer } from './input/hooks/use-idle-timer'
 import { useInputIntents } from './input/hooks/use-input-intents'
+import { useKonami } from './input/hooks/use-konami'
 import { useLastInputDevice } from './input/hooks/use-last-input-device'
 import { promptSet } from './input/prompts'
 import AttractScreen from './screens/attract/AttractScreen'
@@ -92,6 +93,10 @@ export default function App(): JSX.Element {
     ms: ATRACAO_OCIOSO_MS,
     onIdle: () => dispatch({ type: 'attract-start' })
   })
+
+  // Konami em qualquer tela; o Atração trata o próprio (lá o input também decide a saída).
+  // Lançando o Jogo, nada: o Jogo já está abrindo e a janela vai recolher.
+  useKonami({ ativo: state.mode !== 'attract' && state.mode !== 'launching', onKonami: dispararToasty })
 
   const errorPlate = state.errorPlate && <ErrorPlate message={errorCopy(state.errorPlate)} />
 
