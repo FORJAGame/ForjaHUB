@@ -1,8 +1,7 @@
 /**
  * Mapa único de canais IPC — importado por `main` e `preload`.
- * Ainda só liga `WINDOW_TOGGLE_FULLSCREEN`, `WINDOW_QUIT`, `OPERATOR_OPEN`,
- * `APP_HYDRATE`, `CONFIG_ROSTER`, `CONFIG_SETUP_SUBMIT` e `GAME_LAUNCH`. O restante
- * entra como constante para fixar o contrato agora.
+ * `WINDOW_*`, `SYNC_*`, `GAME_STATUS` e `CONTROLLER_STATUS` ainda não têm handler:
+ * entram como constante para fixar o contrato.
  */
 export const IPC = {
   // Comandos renderer → main (ipcRenderer.invoke / ipcMain.handle)
@@ -12,9 +11,10 @@ export const IPC = {
   WINDOW_TOGGLE_FULLSCREEN: 'window:toggle-fullscreen',
   WINDOW_QUIT: 'window:quit',
   GAME_LAUNCH: 'game:launch',
+  OPERATOR_STATUS: 'operator:status',
   OPERATOR_FORCE_SYNC: 'operator:force-sync',
-  OPERATOR_REOPEN_SETUP: 'operator:reopen-setup',
-  ANALYTICS_FLUSH: 'analytics:flush',
+  OPERATOR_SET_SFX_MUDO: 'operator:set-sfx-mudo',
+  OPERATOR_LOG_TAIL: 'operator:log-tail',
 
   // Eventos main → renderer (webContents.send)
   CATALOG_UPDATED: 'catalog:updated',

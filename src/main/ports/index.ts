@@ -4,6 +4,7 @@ import type {
   CommandResult,
   ConfigEstacao,
   Jogo,
+  PrefsOperador,
   RegistroAnalytics
 } from '@shared/types'
 
@@ -37,4 +38,6 @@ export interface GameLauncher {
 export interface Store {
   lerConfigEstacao(): Promise<ConfigEstacao | null>
   gravarConfigEstacao(config: ConfigEstacao): Promise<void>
+  lerPrefsOperador(): Promise<PrefsOperador>
+  gravarPrefsOperador(prefs: PrefsOperador): Promise<void>
 }

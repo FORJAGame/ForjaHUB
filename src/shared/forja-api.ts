@@ -1,4 +1,4 @@
-import type { Catalogo, CommandResult, ControlePrompts, Jogo, Mode } from './types'
+import type { Catalogo, CommandResult, ControlePrompts, Jogo, Mode, OperatorStatus } from './types'
 
 export interface SetupSubmitInput {
   estacaoId: string
@@ -11,17 +11,18 @@ export interface SetupSubmitInput {
  * `catalogo` já vem filtrado por `jogosSelecionados`; é `null` fora do mode `catalog`.
  * `focusedGameId` é o último Jogo lançado, se ainda estiver na view: a volta de uma partida cai no card jogado.
  * `controlePrompts` é a família gravada no Setup (ou a padrão, sem `station.json`).
+ * `sfxMudo` é a escolha do Operador na Tela de Status; a janela recriada na volta de um Jogo a recebe de novo.
  */
 export type HydrateResult = CommandResult<{
   mode: Mode
   catalogo: Catalogo | null
   focusedGameId: string | null
   controlePrompts: ControlePrompts
+  sfxMudo: boolean
 }>
 
 /**
  * Superfície da ponte tipada única.
- * Ainda expõe só o mínimo do shell Kiosk + Setup da Estação.
  */
 export interface ForjaAPI {
   hydrate(): Promise<HydrateResult>
@@ -41,4 +42,19 @@ export interface ForjaAPI {
    * seguida e a recria quando o Jogo fechar. `ok:false` traz um `LaunchErrorCode`.
    */
   gameLaunch(jogoId: string): Promise<CommandResult>
+
+  /* Retrato do estado da Estação para a Tela de Status; nunca espera rede. */
+  operatorStatus(): Promise<CommandResult<{ status: OperatorStatus }>>
+
+  /*
+   * Sincroniza o Catálogo agora e dispara o envio das Sessões pendentes. `ok:true` = Catálogo novo já
+   * aplicado (chega também por `catalog:updated`). `ok:false` traz o código do sync; o Cache anterior fica.
+   */
+  operatorForceSync(): Promise<CommandResult<{ sincronizadoEm: string }>>
+
+  /* Liga/desliga os SFX do Hub; persiste entre reinícios. */
+  operatorSetSfxMudo(mudo: boolean): Promise<CommandResult>
+
+  /* Últimas linhas do `hub.log`, da mais antiga para a mais nova. */
+  operatorLogTail(): Promise<CommandResult<{ linhas: string[] }>>
 }

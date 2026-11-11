@@ -9,6 +9,8 @@ import type { AnalyticsFlusher, AnalyticsSpool } from './types'
 export interface Analytics {
   recorder: SessionRecorder
   flusher: AnalyticsFlusher
+  /** Sessões no spool ainda não confirmadas pelo destino. */
+  pendentes(): Promise<number>
 }
 
 /**
@@ -33,5 +35,9 @@ export async function bootAnalytics(
     lerConfigEstacao,
     aoRegistrar: () => flusher.agendar()
   })
-  return { recorder, flusher }
+  return {
+    recorder,
+    flusher,
+    pendentes: async () => (await spool.pendentes()).length
+  }
 }

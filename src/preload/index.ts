@@ -17,7 +17,11 @@ const forjaAPI: ForjaAPI = {
     const handler = (_event: unknown, catalogo: Catalogo): void => cb(catalogo)
     ipcRenderer.on(IPC.CATALOG_UPDATED, handler)
     return () => ipcRenderer.removeListener(IPC.CATALOG_UPDATED, handler)
-  }
+  },
+  operatorStatus: () => ipcRenderer.invoke(IPC.OPERATOR_STATUS),
+  operatorForceSync: () => ipcRenderer.invoke(IPC.OPERATOR_FORCE_SYNC),
+  operatorSetSfxMudo: (mudo) => ipcRenderer.invoke(IPC.OPERATOR_SET_SFX_MUDO, mudo),
+  operatorLogTail: () => ipcRenderer.invoke(IPC.OPERATOR_LOG_TAIL)
 }
 
 contextBridge.exposeInMainWorld('forjaAPI', forjaAPI)
