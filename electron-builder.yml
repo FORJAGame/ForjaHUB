@@ -12,13 +12,21 @@ asar: false
 win:
   executableName: ForjaHUB
   target:
+    - target: nsis
+      arch: x64
     - target: zip
       arch: x64
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - pt_BR
+  language: '1046'
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  createStartMenuShortcut: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
