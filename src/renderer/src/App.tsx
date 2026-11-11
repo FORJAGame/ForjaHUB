@@ -1,5 +1,6 @@
 import { type Dispatch, type JSX, useEffect, useReducer, useRef, useState } from 'react'
 import type { ForjaAPI } from '@shared/forja-api'
+import type { OperatorStatus } from '@shared/types'
 import { BootScreen, ErrorPlate } from './design/primitives'
 import Toasty from './easter-eggs/Toasty'
 import { shouldWarnDisconnected } from './input/connection'
@@ -12,7 +13,9 @@ import { promptSet } from './input/prompts'
 import AttractScreen from './screens/attract/AttractScreen'
 import CatalogScreen from './screens/catalog/CatalogScreen'
 import DetailScreen from './screens/detail/DetailScreen'
+import OperatorScreen from './screens/operator/OperatorScreen'
 import SetupScreen from './screens/setup/SetupScreen'
+import { setSfxMudo } from './sfx'
 import { errorCopy, isLaunchError } from './state/error-copy'
 import { type Action, initialState, reducer } from './state/reducer'
 
@@ -28,6 +31,7 @@ function runHydrate(api: ForjaAPI, dispatch: Dispatch<Action>, alive: () => bool
     .then((res) => {
       if (!alive()) return
       if (res.ok) {
+        setSfxMudo(res.sfxMudo)
         dispatch({
           type: 'hydrated',
           mode: res.mode,
@@ -49,6 +53,7 @@ export default function App(): JSX.Element {
   const prompts = promptSet(useLastInputDevice(), state.controlePrompts)
   const jogandoRef = useRef(false)
   const [toasty, setToasty] = useState(0)
+  const [setupInicial, setSetupInicial] = useState<NonNullable<OperatorStatus['config']> | null>(null)
   const dispararToasty = (): void => setToasty((disparo) => disparo + 1)
 
   useInputIntents({
@@ -70,7 +75,7 @@ export default function App(): JSX.Element {
     void runHydrate(api, dispatch, () => alive)
 
     const offCatalog = api.onCatalogUpdated((catalogo) => dispatch({ type: 'catalog-updated', catalogo }))
-    // Ctrl+Shift+O → placeholder de Operador.
+    // Ctrl+Shift+O → Tela de Status, só do Operador.
     const offOperator = api.onOperatorOpen(() => dispatch({ type: 'set-mode', mode: 'operator' }))
 
     return () => {
@@ -95,8 +100,11 @@ export default function App(): JSX.Element {
   })
 
   // Konami em qualquer tela; o Atração trata o próprio (lá o input também decide a saída).
-  // Lançando o Jogo, nada: o Jogo já está abrindo e a janela vai recolher.
-  useKonami({ ativo: state.mode !== 'attract' && state.mode !== 'launching', onKonami: dispararToasty })
+  // Lançando o Jogo, nada: o Jogo já está abrindo e a janela vai recolher. A Tela de Status é do Operador.
+  useKonami({
+    ativo: state.mode !== 'attract' && state.mode !== 'launching' && state.mode !== 'operator',
+    onKonami: dispararToasty
+  })
 
   const errorPlate = state.errorPlate && <ErrorPlate message={errorCopy(state.errorPlate)} />
 
@@ -120,7 +128,30 @@ export default function App(): JSX.Element {
   if (state.mode === 'setup') {
     return comToasty(
       <>
-        <SetupScreen onComplete={() => runHydrate(window.forjaAPI, dispatch)} />
+        <SetupScreen
+          inicial={setupInicial ?? undefined}
+          onComplete={() => {
+            setSetupInicial(null)
+            return runHydrate(window.forjaAPI, dispatch)
+          }}
+        />
+        {errorPlate}
+      </>
+    )
+  }
+
+  // Tela do Operador: cursor sempre visível, sem aviso de Controle e fora do wrapper do palco.
+  if (state.mode === 'operator') {
+    return comToasty(
+      <>
+        <OperatorScreen
+          onSair={() => void runHydrate(window.forjaAPI, dispatch)}
+          onReabrirSetup={(config) => {
+            setSetupInicial(config)
+            dispatch({ type: 'set-mode', mode: 'setup' })
+          }}
+          onSfxMudo={setSfxMudo}
+        />
         {errorPlate}
       </>
     )
@@ -175,7 +206,7 @@ export default function App(): JSX.Element {
       />
     )
   } else {
-    // Modo ainda sem tela (Operador).
+    // Mode sem dado suficiente para a tela própria (ex.: `catalog` sem Catálogo).
     screen = (
       <main className="flex h-full select-none flex-col items-center justify-center gap-2 text-ink-primary">
         <p className="text-label-caps m-0 text-ink-secondary">FORJA HUB</p>
