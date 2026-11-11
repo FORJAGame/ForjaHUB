@@ -1,6 +1,7 @@
 import type { HydrateResult } from '@shared/forja-api'
 import { CONTROLE_PROMPTS_PADRAO, type Catalogo, type CommandResult, type ConfigEstacao, type Jogo } from '@shared/types'
 import { catalogoDoKiosk } from '../catalog/kiosk-view'
+import { hubLog } from '../log/hub-log'
 import type { Store } from '../ports'
 import { CURRENT_SCHEMA_VERSION, SchemaIncompativelError } from '../store/config-estacao'
 import { validateSetupSubmit } from '../store/setup-submit'
@@ -51,6 +52,8 @@ export interface HandleAppHydrateDeps {
   lerConfigEstacao: Store['lerConfigEstacao']
   getCatalogResult: GetCatalogResult
   ultimoJogoId?: () => string | null
+  /** Preferência de SFX do Operador; ausente ou com falha => `false`. */
+  lerSfxMudo?: () => Promise<boolean>
 }
 
 /**
@@ -60,6 +63,8 @@ export interface HandleAppHydrateDeps {
  * Sem config, `controlePrompts` é o padrão: o Setup grava a escolha antes do Catálogo abrir.
  */
 export async function handleAppHydrate(deps: HandleAppHydrateDeps): Promise<HydrateResult> {
+  const sfxMudo = await lerSfxMudo(deps)
+
   let config: ConfigEstacao | null
   try {
     config = await deps.lerConfigEstacao()
@@ -71,7 +76,14 @@ export async function handleAppHydrate(deps: HandleAppHydrateDeps): Promise<Hydr
     return { ok: false, code: 'STORE_INDISPONIVEL' }
   }
   if (!config) {
-    return { ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts: CONTROLE_PROMPTS_PADRAO }
+    return {
+      ok: true,
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: CONTROLE_PROMPTS_PADRAO,
+      sfxMudo
+    }
   }
   const { controlePrompts } = config
 
@@ -79,11 +91,23 @@ export async function handleAppHydrate(deps: HandleAppHydrateDeps): Promise<Hydr
   if (!catalogResult.ok) return catalogResult
 
   const catalogo = catalogoDoKiosk(catalogResult.catalogo, config.jogosSelecionados)
-  if (!catalogo) return { ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts }
+  if (!catalogo) {
+    return { ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts, sfxMudo }
+  }
 
   const ultimo = deps.ultimoJogoId?.() ?? null
   const focusedGameId = ultimo && catalogo.jogos.some((jogo) => jogo.id === ultimo) ? ultimo : null
-  return { ok: true, mode: 'catalog', catalogo, focusedGameId, controlePrompts }
+  return { ok: true, mode: 'catalog', catalogo, focusedGameId, controlePrompts, sfxMudo }
+}
+
+async function lerSfxMudo(deps: HandleAppHydrateDeps): Promise<boolean> {
+  if (!deps.lerSfxMudo) return false
+  try {
+    return await deps.lerSfxMudo()
+  } catch (err) {
+    hubLog.erro('main', 'falha lendo prefs do Operador', err)
+    return false
+  }
 }
 
 /**

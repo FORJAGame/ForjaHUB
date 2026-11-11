@@ -1,7 +1,8 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
-import type { Catalogo, CommandResult } from '@shared/types'
+import type { Catalogo, CommandResult, SyncResumo } from '@shared/types'
+import { hubLog } from '../log/hub-log'
 import type { CatalogSource } from '../ports'
 import { resolveSupabaseConfig } from '../config/app-config'
 import { createSupabaseClients, type SupabaseClients } from '../supabase/client'
@@ -19,6 +20,12 @@ export interface SyncDeps {
 
 // Uma 2ª chamada durante uma já em voo recebe a MESMA Promise em vez de disparar um novo sync.
 let inFlight: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
+let ultimo: SyncResumo | null = null
+
+/** Desfecho da última tentativa de sync terminada nesta execução; `null` antes da primeira. */
+export function ultimoSync(): SyncResumo | null {
+  return ultimo
+}
 
 /**
  * Orquestra a sincronização completa: config do Supabase -> tabela `jogos`
@@ -37,6 +44,19 @@ export function sync(
   p.finally(() => {
     if (inFlight === p) inFlight = null
   }).catch(() => {})
+  // Só a chamada que criou a Promise grava o resumo; quem pegou carona não loga nem reescreve.
+  p.then(
+    (result) => {
+      ultimo = {
+        ok: result.ok,
+        code: result.ok ? null : result.code,
+        em: new Date().toISOString()
+      }
+    },
+    () => {
+      ultimo = { ok: false, code: 'CATALOGO_INDISPONIVEL', em: new Date().toISOString() }
+    }
+  ).catch(() => {})
   return p
 }
 
@@ -50,7 +70,7 @@ async function doSync(
   if (!clients) {
     const config = await resolveSupabaseConfig(baseDir)
     if (!config) {
-      console.error('[catalog] sync abortado, URL/anon key do Supabase não configuradas')
+      hubLog.erro('catalogo', 'sync falhou: CATALOGO_NAO_CONFIGURADO (URL/anon key do Supabase ausentes)')
       return { ok: false, code: 'CATALOGO_NAO_CONFIGURADO' }
     }
     clients = createSupabaseClients(config)
@@ -61,10 +81,10 @@ async function doSync(
     jogosMetadata = await fetchCatalogo(clients.jogos)
   } catch (err) {
     if (err instanceof CatalogoInvalidoError) {
-      console.error('[catalog] sync descartado, Jogo inválido na tabela `jogos` (Cache anterior preservado):', err.message)
+      hubLog.erro('catalogo', 'sync falhou: CATALOGO_INVALIDO (Jogo inválido na tabela `jogos`)', err)
       return { ok: false, code: 'CATALOGO_INVALIDO' }
     }
-    console.error('[catalog] sync falhou (rede/API, Cache anterior preservado se houver):', err)
+    hubLog.erro('catalogo', 'sync falhou: CATALOGO_INDISPONIVEL (rede/API)', err)
     return { ok: false, code: 'CATALOGO_INDISPONIVEL' }
   }
 
@@ -76,9 +96,9 @@ async function doSync(
   } catch (err) {
     await rm(staging, { recursive: true, force: true }).catch(() => {})
     if (err instanceof MidiaIndisponivelError) {
-      console.error('[catalog] sync descartado, mídia ausente/não-baixável (Cache anterior preservado):', err.message)
+      hubLog.erro('catalogo', 'sync falhou: MIDIA_INDISPONIVEL (mídia ausente/não-baixável)', err)
     } else {
-      console.error('[catalog] sync falhou baixando mídia (Cache anterior preservado se houver):', err)
+      hubLog.erro('catalogo', 'sync falhou: MIDIA_INDISPONIVEL (download de mídia)', err)
     }
     return { ok: false, code: 'MIDIA_INDISPONIVEL' }
   }
@@ -90,12 +110,12 @@ async function doSync(
     await writeFile(join(staging, 'catalog.json'), JSON.stringify(catalogo, null, 2), 'utf-8')
     await commitStagingCatalog(baseDir, staging)
   } catch (err) {
-    console.error('[catalog] sync obteve o Catálogo mas falhou no swap do Cache:', err)
+    hubLog.erro('catalogo', 'sync falhou: CATALOGO_INDISPONIVEL (swap do Cache)', err)
     await rm(staging, { recursive: true, force: true }).catch(() => {})
     return { ok: false, code: 'CATALOGO_INDISPONIVEL' }
   }
 
-  console.log(`[catalog] sync completo: ${jogos.length} jogo(s)`)
+  hubLog.info('catalogo', `sync ok: ${jogos.length} jogo(s)`)
   return { ok: true, catalogo }
 }
 

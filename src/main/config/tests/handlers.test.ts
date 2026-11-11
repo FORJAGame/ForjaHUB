@@ -128,7 +128,14 @@ describe('handleAppHydrate', () => {
   it('sem config -> setup sem Catálogo e sem esperar o sync', async () => {
     const getCatalogResult = vi.fn()
     const result = await handleAppHydrate({ lerConfigEstacao: async () => null, getCatalogResult })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts: 'xbox' })
+    expect(result).toEqual({
+      ok: true,
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: 'xbox',
+      sfxMudo: false
+    })
     expect(getCatalogResult).not.toHaveBeenCalled()
   })
 
@@ -143,7 +150,8 @@ describe('handleAppHydrate', () => {
       mode: 'setup',
       catalogo: null,
       focusedGameId: null,
-      controlePrompts: 'playstation'
+      controlePrompts: 'playstation',
+      sfxMudo: false
     })
     expect(warn).toHaveBeenCalledWith(expect.any(String), ['fantasma', 'sumido'])
   })
@@ -266,7 +274,14 @@ describe('handleAppHydrate — foco da volta de uma partida', () => {
       getCatalogResult: async () => ({ ok: true, catalogo: CATALOGO_KIOSK }),
       ultimoJogoId: () => 'rebite'
     })
-    expect(result).toEqual({ ok: true, mode: 'setup', catalogo: null, focusedGameId: null, controlePrompts: 'xbox' })
+    expect(result).toEqual({
+      ok: true,
+      mode: 'setup',
+      catalogo: null,
+      focusedGameId: null,
+      controlePrompts: 'xbox',
+      sfxMudo: false
+    })
   })
 })
 

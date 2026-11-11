@@ -117,6 +117,46 @@ export interface ConfigEstacao {
   schemaVersion: number
 }
 
+/** Preferências do Operador que não pertencem à identidade da Estação. */
+export interface PrefsOperador {
+  /** SFX do Hub desligados (clique de foco e som dos easter eggs). */
+  sfxMudo: boolean
+}
+
+/** Desfecho da última tentativa de sync do Catálogo nesta execução do Hub. */
+export interface SyncResumo {
+  ok: boolean
+  /** Código da falha; `null` quando `ok`. */
+  code: string | null
+  /** Horário ISO em que a tentativa terminou. */
+  em: string
+}
+
+/** Retrato da Estação para a Tela de Status. Só o Operador vê. */
+export interface OperatorStatus {
+  /** `null` antes do Setup (ou `station.json` ilegível). */
+  config: Pick<ConfigEstacao, 'estacaoId' | 'eventoId' | 'jogosSelecionados' | 'controlePrompts'> | null
+  /** Catálogo em uso; `sincronizadoEm` é o último sync que deu certo. `jogos` conta o roster inteiro. */
+  catalogo: { sincronizadoEm: string; jogos: number } | null
+  ultimoSync: SyncResumo | null
+  /** Horário ISO da próxima tentativa automática de um sync que falhou; `null` sem pendência. */
+  proximaTentativaEm: string | null
+  /** `null` = registro de Sessões desligado nesta execução. */
+  analytics: {
+    /** Sessões no disco ainda não confirmadas pelo destino. */
+    pendentes: number
+    ultimoFlushOk: boolean | null
+    ultimoFlushEm: string | null
+    /** Código da última falha de envio; `null` se o último envio deu certo ou nunca houve. */
+    ultimoFlushCode: string | null
+  } | null
+  sfxMudo: boolean
+  /** Caminho absoluto do `hub.log` nesta Estação. */
+  logPath: string
+  /** Versão do Hub (`package.json`). */
+  versao: string
+}
+
 export interface Manifest {
   schemaVersion: number
 }

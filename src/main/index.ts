@@ -3,11 +3,12 @@ import { join } from 'path'
 import { app, BrowserWindow, globalShortcut, ipcMain, net, protocol } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/channels'
-import type { Catalogo, CommandResult, Jogo, Mode } from '@shared/types'
+import type { Catalogo, CommandResult, Jogo } from '@shared/types'
+import type { HydrateResult } from '@shared/forja-api'
 import { matchOperatorShortcut, type OperatorShortcut } from './shortcuts'
 import { bootCatalog, type SyncOk } from './catalog/boot'
 import { createCatalogResync } from './catalog/resync'
-import { sync as syncCatalogo } from './catalog/sync'
+import { sync as syncCatalogo, ultimoSync } from './catalog/sync'
 import { kioskCatalogUpdate } from './catalog/kiosk-view'
 import { cleanupOrphanedCacheDirs, mediaDir } from './catalog/cache'
 import { parseForjaMediaUrl, resolveMediaAsset } from './catalog/media-protocol'
@@ -26,6 +27,14 @@ import { createRecuo } from './launcher/recuo'
 import { resolveGameExe } from './launcher/resolve-exe'
 import { createStore } from './store'
 import { vigiarConexao } from './conexao'
+import { hubLog, iniciarHubLog, type HubLogArquivo } from './log/hub-log'
+import {
+  handleOperatorForceSync,
+  handleOperatorLogTail,
+  handleOperatorSetSfxMudo,
+  handleOperatorStatus,
+  type OperatorDeps
+} from './operator/handlers'
 import type { Store } from './ports'
 
 // roda no top-level do módulo
@@ -48,6 +57,8 @@ let store: Store
 let session: GameSession | null = null
 /** `null` = analytics desligado nesta execução (spool inutilizável). */
 let analytics: Analytics | null = null
+/** Arquivo do `hub.log`; o `before-quit` espera a fila dele esvaziar. */
+let hubLogArquivo: HubLogArquivo | null = null
 
 let catalogoAtual: CommandResult<{ catalogo: Catalogo }> | null = null
 let catalogoInicial: Promise<CommandResult<{ catalogo: Catalogo }>> | null = null
@@ -76,7 +87,7 @@ function runOperatorShortcut(action: OperatorShortcut): void {
       mainWindow?.setFullScreen(!mainWindow.isFullScreen())
       return
     case 'open-operator':
-      // Status de tela real só na pós refactor.
+      // A janela some com um Jogo aberto: sem renderer, o atalho não tem o que abrir.
       if (mainWindow && !mainWindow.webContents.isDestroyed()) {
         mainWindow.webContents.send(IPC.OPERATOR_OPEN)
       }
@@ -168,6 +179,10 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     electronApp.setAppUserModelId('com.forja.hub')
+    // Primeiro de tudo: sync e Sessão do boot já caem no arquivo.
+    const logArquivo = iniciarHubLog(app.getPath('userData'))
+    hubLogArquivo = logArquivo
+    hubLog.info('main', `Hub ${app.getVersion()} iniciado`)
     store = createStore()
 
     // `forja://media/<id>/<tipo>` -> `userData/catalog/current/media/<id>/…`
@@ -224,7 +239,7 @@ if (!app.requestSingleInstanceLock()) {
           mainWindow.webContents.send(IPC.CATALOG_UPDATED, view)
         }
       } catch (err) {
-        console.error('[main] falha enviando catalog:updated:', err)
+        hubLog.erro('main', 'falha enviando catalog:updated', err)
       }
     }
     const catalogResync = createCatalogResync({ sync: syncCatalogo, onSynced: aplicarCatalogo })
@@ -237,7 +252,7 @@ if (!app.requestSingleInstanceLock()) {
       .then((result) => {
         if (!catalogoAtual) catalogoAtual = result
       })
-      .catch((err) => console.error('[main] Catálogo do boot falhou:', err))
+      .catch((err) => hubLog.erro('main', 'Catálogo do boot falhou', err))
       // Envio pós-Catálogo do boot; nunca bloqueia nem falha o boot.
       .finally(() => void analytics?.flusher.flushAgora())
 
@@ -256,13 +271,12 @@ if (!app.requestSingleInstanceLock()) {
 
     ipcMain.handle(
       IPC.APP_HYDRATE,
-      (): Promise<
-        CommandResult<{ mode: Mode; catalogo: Catalogo | null; focusedGameId: string | null }>
-      > =>
+      (): Promise<HydrateResult> =>
         handleAppHydrate({
           lerConfigEstacao: () => store.lerConfigEstacao(),
           getCatalogResult,
-          ultimoJogoId: () => sessao.ultimoJogoId()
+          ultimoJogoId: () => sessao.ultimoJogoId(),
+          lerSfxMudo: async () => (await store.lerPrefsOperador()).sfxMudo
         })
     )
 
@@ -282,6 +296,22 @@ if (!app.requestSingleInstanceLock()) {
         gravarConfigEstacao: (config) => store.gravarConfigEstacao(config)
       })
     )
+
+    const operador: OperatorDeps = {
+      lerConfigEstacao: () => store.lerConfigEstacao(),
+      lerPrefsOperador: () => store.lerPrefsOperador(),
+      gravarPrefsOperador: (prefs) => store.gravarPrefsOperador(prefs),
+      catalogoAtual: () => (catalogoAtual?.ok ? catalogoAtual.catalogo : null),
+      ultimoSync,
+      resync: catalogResync,
+      analytics,
+      log: logArquivo,
+      versao: app.getVersion()
+    }
+    ipcMain.handle(IPC.OPERATOR_STATUS, () => handleOperatorStatus(operador))
+    ipcMain.handle(IPC.OPERATOR_FORCE_SYNC, () => handleOperatorForceSync(operador))
+    ipcMain.handle(IPC.OPERATOR_SET_SFX_MUDO, (_event, mudo: unknown) => handleOperatorSetSfxMudo(mudo, operador))
+    ipcMain.handle(IPC.OPERATOR_LOG_TAIL, () => handleOperatorLogTail(operador))
 
     registerGlobalShortcuts()
     createWindow()
@@ -305,6 +335,9 @@ if (!app.requestSingleInstanceLock()) {
       encerrar: async () => {
         analytics?.flusher.parar()
         await analytics?.recorder.encerrarNoQuit()
+        // A Sessão fecha aqui, sem o `exited`: a linha de fim sai antes do processo morrer.
+        hubLog.info('sessao', 'fim: Hub encerrado com Jogo aberto (sessão incompleta)')
+        await hubLogArquivo?.ocioso()
       },
       sair: () => app.quit()
     })
