@@ -1,4 +1,5 @@
 import type { CommandResult, Jogo } from '@shared/types'
+import { hubLog } from '../log/hub-log'
 import type { ExitInfo, GameLauncher } from '../ports'
 import type { ResolveExeResult } from './resolve-exe'
 
@@ -40,10 +41,10 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
     if (!deps.abrirSessao) return
     try {
       void deps.abrirSessao({ jogoId, inicioISO }).catch((err) => {
-        console.error('[main] falha registrando o início da Sessão:', err)
+        hubLog.erro('sessao', 'falha registrando o início da Sessão', err)
       })
     } catch (err) {
-      console.error('[main] falha registrando o início da Sessão:', err)
+      hubLog.erro('sessao', 'falha registrando o início da Sessão', err)
     }
   }
 
@@ -56,20 +57,24 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
 
       const resolvido = await deps.resolverExe(jogo)
       if (!resolvido.ok) {
-        console.warn(`[main] não deu para abrir ${jogoId}: ${resolvido.code}`)
+        hubLog.erro('sessao', `não abriu ${jogoId}: ${resolvido.code}`)
         return { ok: false, code: resolvido.code }
       }
 
-      if ((await deps.launcher.launch(resolvido.exeAbs)) === 'error') return { ok: false, code: 'FALHA_AO_ABRIR' }
+      if ((await deps.launcher.launch(resolvido.exeAbs)) === 'error') {
+        hubLog.erro('sessao', `não abriu ${jogoId}: FALHA_AO_ABRIR`)
+        return { ok: false, code: 'FALHA_AO_ABRIR' }
+      }
 
       const inicioISO = agora().toISOString()
       sessao = { jogoId, inicioISO }
       ultimo = jogoId
+      hubLog.info('sessao', `início: ${jogoId}`)
       avisarAbertura(jogoId, inicioISO)
       deps.aoIniciar(jogoId)
       return { ok: true }
     } catch (err) {
-      console.error(`[main] falha ao abrir ${jogoId}:`, err)
+      hubLog.erro('sessao', `não abriu ${jogoId}: FALHA_AO_ABRIR`, err)
       return { ok: false, code: 'FALHA_AO_ABRIR' }
     } finally {
       lancando = false
@@ -78,6 +83,10 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
 
   async function finalizar(s: SessaoAtiva, info: ExitInfo): Promise<void> {
     const duracaoMs = info.durationMs
+    hubLog.info(
+      'sessao',
+      `fim: ${s.jogoId}, ${Math.round(duracaoMs / 1000)} s, código ${info.code ?? 'desconhecido'}`
+    )
     try {
       try {
         await deps.registrarSessao?.({
@@ -87,7 +96,7 @@ export function createGameSession(deps: GameSessionDeps): GameSession {
           codigo: info.code
         })
       } catch (err) {
-        console.error('[main] falha registrando a Sessão encerrada:', err)
+        hubLog.erro('sessao', 'falha registrando a Sessão encerrada', err)
       }
     } finally {
       deps.aoEncerrar()

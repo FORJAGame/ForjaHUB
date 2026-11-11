@@ -1,4 +1,5 @@
 import type { RegistroAnalytics } from '@shared/types'
+import { hubLog } from '../log/hub-log'
 import type { AnalyticsSink } from '../ports'
 import {
   AnalyticsNaoConfiguradoError,
@@ -37,6 +38,7 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
   let falhasSeguidas = 0
   let ultimoFlushOk: boolean | null = null
   let ultimoFlushEm: string | null = null
+  let ultimoCodigo: string | null = null
 
   function cancelarTimer(): void {
     if (timer === null) return
@@ -71,7 +73,8 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     falhasSeguidas += 1
     ultimoFlushOk = false
     ultimoFlushEm = agora().toISOString()
-    console.error('[analytics] flush falhou:', code, err)
+    ultimoCodigo = code
+    hubLog.erro('analytics', `envio falhou: ${code}`, err)
     const espera = Math.min(retryMs * 2 ** (falhasSeguidas - 1), retryMaxMs)
     agendarEm(espera)
     return { ok: false, code }
@@ -84,7 +87,11 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     falhasSeguidas = 0
     ultimoFlushOk = true
     ultimoFlushEm = agora().toISOString()
+    ultimoCodigo = null
     return relerRestantes(pendentes.length - enviados).then((restantes) => {
+      if (enviados > 0) {
+        hubLog.info('analytics', `${enviados} sessão(ões) enviada(s), ${restantes} pendente(s)`)
+      }
       if (restantes > 0) agendarEm(0)
       return { ok: true, enviados, pendentes: restantes }
     })
@@ -94,7 +101,7 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     try {
       return (await deps.spool.pendentes()).length
     } catch (err) {
-      console.error('[analytics] falha relendo pendentes:', err)
+      hubLog.erro('analytics', 'falha relendo pendentes', err)
       return Math.max(0, fallback)
     }
   }
@@ -146,7 +153,7 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
     cancelarTimer()
     if (emVoo) return emVoo
     const promessa = enviar().catch((err): FlushResult => {
-      console.error('[analytics] flush falhou inesperadamente:', err)
+      hubLog.erro('analytics', 'flush falhou inesperadamente', err)
       return { ok: false, code: ERRO_INDISPONIVEL }
     })
     emVoo = promessa
@@ -160,7 +167,7 @@ export function createAnalyticsFlusher(deps: AnalyticsFlusherDeps): AnalyticsFlu
   return {
     flushAgora,
     agendar: () => agendarEm(debounceMs),
-    estado: () => ({ ultimoFlushOk, ultimoFlushEm }),
+    estado: () => ({ ultimoFlushOk, ultimoFlushEm, ultimoCodigo }),
     parar: () => {
       parado = true
       cancelarTimer()

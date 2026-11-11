@@ -113,7 +113,7 @@ describe('createAnalyticsFlusher — envio', () => {
     expect(sink.flush).toHaveBeenCalledTimes(1)
     expect(sink.flush).toHaveBeenCalledWith([registro('a'), registro('b')])
     expect(spool.confirmacoes).toEqual([['a', 'b']])
-    expect(flusher.estado()).toEqual({ ultimoFlushOk: true, ultimoFlushEm: AGORA_ISO })
+    expect(flusher.estado()).toEqual({ ultimoFlushOk: true, ultimoFlushEm: AGORA_ISO, ultimoCodigo: null })
   })
 
   it('é single-flight: duas chamadas em voo compartilham o mesmo envio', async () => {
@@ -152,7 +152,7 @@ describe('createAnalyticsFlusher — envio', () => {
 
     expect(obterSink).not.toHaveBeenCalled()
     expect(sink.flush).not.toHaveBeenCalled()
-    expect(flusher.estado()).toEqual({ ultimoFlushOk: null, ultimoFlushEm: null })
+    expect(flusher.estado()).toEqual({ ultimoFlushOk: null, ultimoFlushEm: null, ultimoCodigo: null })
   })
 })
 
